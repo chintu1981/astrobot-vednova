@@ -1,4 +1,7 @@
 [build]
-  base    = "frontend"
   command = "npm run build"
   publish = "frontend/build"
+
+[build.environment]
+  NODE_VERSION = "20.19.2"
+  NODE_OPTIONS = "--openssl-legacy-provider"
