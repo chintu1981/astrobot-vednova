@@ -21,7 +21,9 @@ function App() {
 
   return (
     <div style={{ padding: "2rem", fontFamily: "sans-serif" }}>
-      <h1>🧘‍♂️ AstroBot Vedari</h1>
+      <h1>
+        <span role="img" aria-label="meditating man">🧘‍♂️</span> AstroBot Vedari
+      </h1>
       <form onSubmit={handleSubmit}>
         <input name="name" placeholder="Full Name" onChange={handleChange} /><br/><br/>
         <input name="date" placeholder="Date of Birth (YYYY-MM-DD)" onChange={handleChange} /><br/><br/>
