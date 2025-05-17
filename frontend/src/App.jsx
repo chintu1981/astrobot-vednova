@@ -6,57 +6,28 @@ function App() {
   const [month, setMonth] = useState("06");
   const [year, setYear] = useState("1981");
   const [birthTime, setBirthTime] = useState("12:00");
-  const [citySearch, setCitySearch] = useState("");
-  const [cityResults, setCityResults] = useState([]);
-  const [selectedCity, setSelectedCity] = useState(null);
+  const [locationList, setLocationList] = useState([]);
+  const [selectedLocation, setSelectedLocation] = useState("");
   const [timezone, setTimezone] = useState("+05:30");
   const [response, setResponse] = useState(null);
   const [showTextKundali, setShowTextKundali] = useState(false);
 
   useEffect(() => {
-    const delayDebounce = setTimeout(() => {
-      if (citySearch.length > 2) {
-        fetch(
-          `https://wft-geo-db.p.rapidapi.com/v1/geo/cities?limit=5&namePrefix=${citySearch}`,
-          {
-            method: "GET",
-            headers: {
-              "X-RapidAPI-Key": "c692960917msh69316d06d1e0408p182b0ejsne1e40ea437ab",
-              "X-RapidAPI-Host": "wft-geo-db.p.rapidapi.com",
-            },
-          }
-        )
-          .then((res) => res.json())
-          .then((data) => setCityResults(data.data || []))
-          .catch(() => setCityResults([]));
-      }
-    }, 400);
-    return () => clearTimeout(delayDebounce);
-  }, [citySearch]);
-
-  const handleCitySelect = (city) => {
-    setSelectedCity(city);
-    setCitySearch(`${city.city}, ${city.country}`);
-    setCityResults([]);
-
-    if (city.timezone) {
-      const offsetMinutes = city.timezone.offsetTotalMinutes || 330;
-      const sign = offsetMinutes >= 0 ? "+" : "-";
-      const hours = String(Math.floor(Math.abs(offsetMinutes) / 60)).padStart(2, "0");
-      const minutes = String(Math.abs(offsetMinutes) % 60).padStart(2, "0");
-      setTimezone(`${sign}${hours}:${minutes}`);
-    } else {
-      setTimezone("+05:30");
-    }
-  };
+    fetch("https://api.vedastro.org/api/LocationList")
+      .then((res) => res.json())
+      .then((data) => {
+        const locs = data.Payload?.map((loc) => loc.Name).sort();
+        setLocationList(locs || []);
+      });
+  }, []);
 
   const handleSubmit = async () => {
-    if (!selectedCity) return alert("Please select a city from suggestions");
+    if (!selectedLocation) return alert("Please select a valid location from the list");
     const [hour, minute] = birthTime.split(":");
     const formattedTime = `${hour.padStart(2, "0")}:${minute.padStart(2, "0")}:00`;
     const formattedDate = `${year}-${month}-${day}`;
     const apiKey = "BPbzv8zDmX";
-    const encodedLocation = encodeURIComponent(`${selectedCity.city}, ${selectedCity.country}`);
+    const encodedLocation = encodeURIComponent(selectedLocation);
 
     const chartJsonURL = `https://api.vedastro.org/api/Calculate/ChartJSON/Location/${encodedLocation}/Time/${formattedTime}/${formattedDate}/${timezone}/Ayanamsa/LAHIRI/APIKey/${apiKey}`;
 
@@ -68,7 +39,7 @@ function App() {
       console.log("🧠 VedAstro ChartJSON:", data);
 
       if (!data.Payload || !data.Payload.PlanetList) {
-        setResponse({ error: "VedAstro ChartJSON returned no data. Try a major city like 'Mumbai'." });
+        setResponse({ error: "VedAstro ChartJSON returned no data. Try another location." });
         return;
       }
 
@@ -106,18 +77,16 @@ function App() {
         })}
       </select>
       <input placeholder="HH:MM" value={birthTime} onChange={(e) => setBirthTime(e.target.value)} />
-      <input placeholder="Enter city" value={citySearch} onChange={(e) => setCitySearch(e.target.value)} />
 
-      <div>
-        {cityResults.map((city, idx) => (
-          <div
-            key={idx}
-            onClick={() => handleCitySelect(city)}
-            style={{ cursor: "pointer", background: "#eee", marginTop: 2, padding: 4 }}>
-            {city.city}, {city.country}
-          </div>
+      <select
+        value={selectedLocation}
+        onChange={(e) => setSelectedLocation(e.target.value)}
+        style={{ marginLeft: 10 }}>
+        <option value="">-- Select Location --</option>
+        {locationList.map((loc, idx) => (
+          <option key={idx} value={loc}>{loc}</option>
         ))}
-      </div>
+      </select>
 
       <button onClick={handleSubmit}>Ask Vedari</button>
       <button onClick={() => setShowTextKundali(!showTextKundali)} style={{ marginLeft: 10 }}>
