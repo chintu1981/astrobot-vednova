@@ -8,17 +8,25 @@ function App() {
   const [birthTime, setBirthTime] = useState("12:00");
   const [locationList, setLocationList] = useState([]);
   const [selectedLocation, setSelectedLocation] = useState("");
-  const timezone = "+05:30";
   const [response, setResponse] = useState(null);
   const [showTextKundali, setShowTextKundali] = useState(false);
 
   useEffect(() => {
-    fetch("https://api.vedastro.org/api/LocationList")
-      .then((res) => res.json())
-      .then((data) => {
-        const locs = data.Payload?.map((loc) => loc.Name).sort();
-        setLocationList(locs || []);
-      });
+    const fetchLocations = async () => {
+      try {
+        const res = await fetch("https://api.vedastro.org/api/LocationList");
+        const data = await res.json();
+        const locs = Array.isArray(data?.Payload)
+          ? data.Payload.map((loc) => loc.Name).sort()
+          : [];
+        setLocationList(locs);
+      } catch (err) {
+        console.error("❌ Error fetching VedAstro locations", err);
+        setLocationList([]);
+      }
+    };
+
+    fetchLocations();
   }, []);
 
   const handleSubmit = async () => {
@@ -26,6 +34,7 @@ function App() {
     const [hour, minute] = birthTime.split(":");
     const formattedTime = `${hour.padStart(2, "0")}:${minute.padStart(2, "0")}:00`;
     const formattedDate = `${year}-${month}-${day}`;
+    const timezone = "+05:30";
     const apiKey = "BPbzv8zDmX";
     const encodedLocation = encodeURIComponent(selectedLocation);
 
@@ -83,7 +92,7 @@ function App() {
         onChange={(e) => setSelectedLocation(e.target.value)}
         style={{ marginLeft: 10 }}>
         <option value="">-- Select Location --</option>
-        {locationList.map((loc, idx) => (
+        {Array.isArray(locationList) && locationList.map((loc, idx) => (
           <option key={idx} value={loc}>{loc}</option>
         ))}
       </select>
