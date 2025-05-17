@@ -10,7 +10,8 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-scripts": "^3.0.1",
-    "react-select": "^5.10.1"
+    "react-select": "^5.10.1",
+    "tz-lookup": "^6.1.25"
   },
   "scripts": {
     "start": "react-scripts start",
