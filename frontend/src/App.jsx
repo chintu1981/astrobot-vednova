@@ -1,98 +1,90 @@
-// App.jsx
 import React, { useState } from 'react';
 import Select from 'react-select/async';
 
-const VEDASTRO_API_KEY = 'BPbzv8zDmX';
-const AYANAMSA = 'LAHIRI';
-const TIMEZONE = '+05:30'; // Adjust based on user's timezone
-
 const AstroBotVedari = () => {
   const [name, setName] = useState('');
-  const [date, setDate] = useState({ day: '05', month: '06', year: '1981' });
+  const [day, setDay] = useState('05');
+  const [month, setMonth] = useState('06');
+  const [year, setYear] = useState('1981');
   const [time, setTime] = useState('12:00');
   const [location, setLocation] = useState(null);
-  const [result, setResult] = useState(null);
-  const [rawJson, setRawJson] = useState(null);
+  const [vedariText, setVedariText] = useState('');
+  const [showText, setShowText] = useState(false);
 
-  const loadLocations = async (inputValue) => {
+  const fetchLocationSuggestions = async (inputValue) => {
+    if (!inputValue) return [];
     const response = await fetch(`https://api.api-ninjas.com/v1/geocoding?city=${inputValue}`, {
-      headers: { 'X-Api-Key': 'wBK21wCy9SmT29zbfnAjOA==CmbJZ2DKxu3EiQ4m' },
+      headers: { 'X-Api-Key': 'wBK21wCy9SmT29zbfnAjOA==CmbJZ2DKxu3EiQ4m' }
     });
     const data = await response.json();
-    return data.map((item) => ({
-      label: `${item.name}, ${item.country}`,
-      value: { lat: item.latitude, lon: item.longitude, name: item.name },
+    return data.map(city => ({
+      label: `${city.name}, ${city.country}`,
+      value: { lat: city.latitude, lon: city.longitude, name: city.name }
     }));
   };
 
-  const buildVedastroURL = (type, params = '') => {
-    return `https://api.vedastro.org/api/Calculate/${type}/Location/${location?.value?.name || 'Rajkot'}/Time/${time}:00/${date.day}/${date.month}/${date.year}/${TIMEZONE}/Ayanamsa/${AYANAMSA}/APIKey/${VEDASTRO_API_KEY}${params}`;
-  };
-
   const handleAskVedari = async () => {
-    if (!location) return alert('Please select a city from suggestions.');
-    const urls = [
-      buildVedastroURL('HoroscopePredictions'),
-      buildVedastroURL('DasaAtRange', `/Location/${location.value.name}/Time/00:00/01/01/${date.year}/+05:30/Location/${location.value.name}/Time/00:00/01/01/${parseInt(date.year) + 10}/+05:30/Levels/3/PrecisionHours/100`),
-      buildVedastroURL('AllHouseData/HouseName/All')
-    ];
+    if (!location) {
+      alert("Please select a city from suggestions.");
+      return;
+    }
+
+    const fullDate = `${year}-${month}-${day}`;
+    const formattedTime = `${time}:00`;
+    const offset = "+05:30"; // You may calculate this dynamically later
+    const dateTime = `${formattedTime}/${day}/${month}/${year}/${offset}`;
+    const base = `Location/${location.value.name}/Time/${dateTime}/Ayanamsa/LAHIRI/APIKey/BPbzv8zDmX`;
 
     try {
-      const [pred, dasa, house] = await Promise.all(urls.map(url => fetch(url).then(res => res.json())));
-      const mergedResult = {
-        Horoscope: pred?.Payload,
-        Dasha: dasa?.Payload,
-        HouseData: house?.Payload
+      const responses = await Promise.all([
+        fetch(`https://api.vedastro.org/api/Calculate/AllPlanetData/PlanetName/All/${base}`),
+        fetch(`https://api.vedastro.org/api/Calculate/AllHouseData/HouseName/All/${base}`),
+        fetch(`https://api.vedastro.org/api/Calculate/HoroscopePredictions/${base}`),
+        fetch(`https://api.vedastro.org/api/Calculate/SouthIndianChart/${base}/ChartType/BhavaChalit`)
+      ]);
+
+      const allJson = await Promise.all(responses.map(res => res.json()));
+      const combined = {
+        planetData: allJson[0],
+        houseData: allJson[1],
+        predictions: allJson[2],
+        chartSVG: allJson[3]
       };
-      setResult(mergedResult);
+
+      setVedariText(JSON.stringify(combined, null, 2));
     } catch (err) {
-      console.error('ChartJSON error:', err);
-      setResult({ error: 'Chart fetch failed.' });
+      console.error("ChartJSON error:", err);
+      setVedariText(JSON.stringify({ error: "Chart fetch failed." }, null, 2));
     }
   };
 
-  const handleShowText = async () => {
-    if (!location) return alert('Please select a city from suggestions.');
-    const url = buildVedastroURL('AllPlanetData/PlanetName/All');
-    const response = await fetch(url);
-    const data = await response.json();
-    setRawJson(data);
-  };
-
   return (
-    <div style={{ padding: '2rem' }}>
-      <h1>
-          <span role="img" aria-label="meditating person">🧘‍♂️</span> AstroBot Vedari
-      </h1>
-      <div>
-        <input placeholder="Name" onChange={(e) => setName(e.target.value)} />
-        Day:
-        <select value={date.day} onChange={(e) => setDate({ ...date, day: e.target.value })}>
-          {[...Array(31)].map((_, i) => (
-            <option key={i + 1}>{(i + 1).toString().padStart(2, '0')}</option>
-          ))}
-        </select>
-        Month:
-        <select value={date.month} onChange={(e) => setDate({ ...date, month: e.target.value })}>
-          {[...Array(12)].map((_, i) => (
-            <option key={i + 1}>{(i + 1).toString().padStart(2, '0')}</option>
-          ))}
-        </select>
-        Year:
-        <select value={date.year} onChange={(e) => setDate({ ...date, year: e.target.value })}>
-          {[...Array(100)].map((_, i) => (
-            <option key={i}>{1980 + i}</option>
-          ))}
-        </select>
-        <input value={time} onChange={(e) => setTime(e.target.value)} placeholder="HH:MM" />
-        <Select cacheOptions loadOptions={loadLocations} onChange={setLocation} placeholder="Select Location" />
-      </div>
-      <button onClick={handleAskVedari}>Ask Vedari</button>
-      <button onClick={handleShowText}>Show Text Kundali</button>
-      <button onClick={() => setRawJson(null)}>Hide Text Kundali</button>
+    <div style={{ padding: '20px', fontFamily: 'Arial' }}>
+      <h1><span role="img" aria-label="yogi">🧘</span> AstroBot Vedari</h1>
 
-      <h2>Vedari Says:</h2>
-      <pre>{JSON.stringify(result || rawJson, null, 2)}</pre>
+      <input placeholder="Name" value={name} onChange={e => setName(e.target.value)} />
+      Day: <select value={day} onChange={e => setDay(e.target.value)}>{Array.from({ length: 31 }, (_, i) => <option key={i+1}>{String(i+1).padStart(2, '0')}</option>)}</select>
+      Month: <select value={month} onChange={e => setMonth(e.target.value)}>{Array.from({ length: 12 }, (_, i) => <option key={i+1}>{String(i+1).padStart(2, '0')}</option>)}</select>
+      Year: <select value={year} onChange={e => setYear(e.target.value)}>{Array.from({ length: 100 }, (_, i) => <option key={i}>{1980 + i}</option>)}</select>
+      <input placeholder="HH:MM" value={time} onChange={e => setTime(e.target.value)} />
+      <div style={{ width: '300px', display: 'inline-block', marginLeft: '10px' }}>
+        <Select
+          cacheOptions
+          loadOptions={fetchLocationSuggestions}
+          onChange={setLocation}
+          placeholder="Type City..."
+        />
+      </div>
+
+      <div style={{ marginTop: '10px' }}>
+        <button onClick={handleAskVedari}>Ask Vedari</button>
+        <button onClick={() => setShowText(true)}>Show Text Kundali</button>
+        <button onClick={() => setShowText(false)}>Hide Text Kundali</button>
+      </div>
+
+      {showText && (
+        <pre style={{ whiteSpace: 'pre-wrap', marginTop: '20px' }}>Vedari Says: {'\n'}{vedariText}</pre>
+      )}
     </div>
   );
 };
