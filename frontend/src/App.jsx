@@ -2,84 +2,68 @@ import React, { useState } from "react";
 
 function App() {
   const [name, setName] = useState("");
-  const [day, setDay] = useState("01");
-  const [month, setMonth] = useState("01");
-  const [year, setYear] = useState("1980");
-  const [time, setTime] = useState("");
-  const [place, setPlace] = useState("");
-  const [result, setResult] = useState("");
+  const [birthDay, setBirthDay] = useState("01");
+  const [birthMonth, setBirthMonth] = useState("01");
+  const [birthYear, setBirthYear] = useState("2000");
+  const [birthTime, setBirthTime] = useState("");
+  const [birthPlace, setBirthPlace] = useState("");
+  const [response, setResponse] = useState("");
 
   const handleSubmit = async () => {
-    const birthDate = `${year}-${month}-${day}`;
-
-    const response = await fetch("https://api.vedastro.org/planet-positions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": "BPbzv8zDmX"
-      },
-      body: JSON.stringify({
-        name,
-        birth_date: birthDate,
-        birth_time: time,
-        birth_place: place
-      })
-    });
+    const fullDate = `${birthYear}-${birthMonth}-${birthDay}`;
+    const apiUrl = "https://api.vedastro.org/api/planet-position";
 
     try {
-      const data = await response.json();
-      setResult(JSON.stringify(data, null, 2));
-    } catch (err) {
-      setResult("Error parsing response");
+      const res = await fetch(apiUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": "BPbzv8zDmX"
+        },
+        body: JSON.stringify({
+          name,
+          birth_date: fullDate,
+          birth_time: birthTime,
+          birth_place: birthPlace
+        })
+      });
+      const data = await res.json();
+      setResponse(JSON.stringify(data));
+    } catch (error) {
+      setResponse("Error parsing response");
     }
   };
 
-  const generateOptions = (start, end) => {
-    const options = [];
-    for (let i = start; i <= end; i++) {
-      options.push(<option key={i}>{i.toString().padStart(2, '0')}</option>);
-    }
-    return options;
-  };
+  const renderDropdown = (label, value, onChange, options) => (
+    <label>
+      {label}:
+      <select value={value} onChange={e => onChange(e.target.value)}>
+        {options.map(opt => (
+          <option key={opt} value={opt}>{opt}</option>
+        ))}
+      </select>
+    </label>
+  );
+
+  const days = Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, "0"));
+  const months = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, "0"));
+  const years = Array.from({ length: 100 }, (_, i) => String(2025 - i));
 
   return (
     <div className="App">
       <h1>
         <span role="img" aria-label="meditating person">🧘‍♂️</span> AstroBot Vedari
       </h1>
-      <input
-        type="text"
-        placeholder="name"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-      />
-      <div>
-        <select value={day} onChange={(e) => setDay(e.target.value)}>
-          {generateOptions(1, 31)}
-        </select>
-        <select value={month} onChange={(e) => setMonth(e.target.value)}>
-          {generateOptions(1, 12)}
-        </select>
-        <select value={year} onChange={(e) => setYear(e.target.value)}>
-          {generateOptions(1900, 2025)}
-        </select>
-      </div>
-      <input
-        type="text"
-        placeholder="12:00"
-        value={time}
-        onChange={(e) => setTime(e.target.value)}
-      />
-      <input
-        type="text"
-        placeholder="rajkot, gujarat"
-        value={place}
-        onChange={(e) => setPlace(e.target.value)}
-      />
+      <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Name" />
+      {renderDropdown("Day", birthDay, setBirthDay, days)}
+      {renderDropdown("Month", birthMonth, setBirthMonth, months)}
+      {renderDropdown("Year", birthYear, setBirthYear, years)}
+      <input type="text" value={birthTime} onChange={e => setBirthTime(e.target.value)} placeholder="HH:MM" />
+      <input type="text" value={birthPlace} onChange={e => setBirthPlace(e.target.value)} placeholder="Birth Place" />
       <button onClick={handleSubmit}>Ask Vedari</button>
       <hr />
       <h3>Vedari Says:</h3>
-      <pre>{result}</pre>
+      <pre>{response}</pre>
     </div>
   );
 }
