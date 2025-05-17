@@ -44,7 +44,9 @@ function App() {
 
   return (
     <div className="App">
-      <h1>🧘‍♂️ AstroBot Vedari</h1>
+      <h1>
+        <span role="img" aria-label="meditating person">🧘‍♂️</span> AstroBot Vedari
+      </h1>
       <input
         type="text"
         placeholder="name"
