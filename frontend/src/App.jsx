@@ -31,8 +31,8 @@ function App() {
 
       setResponse({
         chartURL,
-        planetData: planetJson.Payload?.AllPlanetData,
-        predictions: predictionJson.Payload,
+        planetData: planetJson.Payload?.AllPlanetData || [],
+        predictions: predictionJson.Payload || [],
       });
     } catch (err) {
       setResponse({ error: "Error fetching data" });
@@ -87,17 +87,18 @@ function App() {
 
       <hr />
       <h2>Vedari Says:</h2>
-      {response?.error && <div>{response.error}</div>}
+      {response?.error && <div style={{ color: "red" }}>{response.error}</div>}
+
       {response?.chartURL && (
         <div>
           <h3>
-           <span role="img" aria-label="North Indian Chart">🧭</span> North Indian Chart
+            <span role="img" aria-label="North Indian Chart">🧭</span> North Indian Chart
           </h3>
           <img src={response.chartURL} alt="North Indian Chart" style={{ border: "1px solid gray" }} />
         </div>
       )}
 
-      {response?.planetData && (
+      {Array.isArray(response?.planetData) && response.planetData.length > 0 && (
         <div>
           <h3>
             <span role="img" aria-label="Planetary Positions">🌌</span> Planetary Positions
@@ -107,7 +108,7 @@ function App() {
               const [name, data] = Object.entries(planet)[0];
               return (
                 <li key={idx}>
-                  <strong>{name}</strong>: House {data.HousePlanetOccupiesBasedOnLongitudes} | Benefic: {data.IsPlanetBenefic}
+                  <strong>{name}</strong>: {data?.HousePlanetOccupies?.Name || "Unknown"} | Benefic: {data?.IsPlanetBenefic ? "True" : "False"}
                 </li>
               );
             })}
@@ -115,14 +116,14 @@ function App() {
         </div>
       )}
 
-      {response?.predictions && (
+      {Array.isArray(response?.predictions) && response.predictions.length > 0 && (
         <div>
           <h3>
             <span role="img" aria-label="Horoscope Predictions">📜</span> Horoscope Predictions
           </h3>
           <ul>
             {response.predictions.map((item, idx) => (
-              <li key={idx}>{item.PredictionText}</li>
+              <li key={idx}>{item?.PredictionText || "No prediction text"}</li>
             ))}
           </ul>
         </div>
