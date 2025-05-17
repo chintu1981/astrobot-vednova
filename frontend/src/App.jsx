@@ -20,7 +20,7 @@ function App() {
           {
             method: "GET",
             headers: {
-              "X-RapidAPI-Key": "c692960917msh69316d06d1e0408p182b0ejsne1e40ea437ab", // Replace with your real key
+              "X-RapidAPI-Key": "c692960917msh69316d06d1e0408p182b0ejsne1e40ea437ab",
               "X-RapidAPI-Host": "wft-geo-db.p.rapidapi.com",
             },
           }
@@ -38,13 +38,12 @@ function App() {
     setCitySearch(`${city.city}, ${city.country}`);
     setCityResults([]);
 
-    // Fetch timezone from lat/lon
     try {
       const res = await fetch(
         `https://api.api-ninjas.com/v1/timezone?lat=${city.latitude}&lon=${city.longitude}`,
         {
           headers: {
-            "X-Api-Key": "demo-key" // Replace with your real key
+            "X-Api-Key": "demo-key"
           },
         }
       );
@@ -65,11 +64,9 @@ function App() {
     const formattedTime = `${hour.padStart(2, "0")}:${minute.padStart(2, "0")}:00`;
     const formattedDate = `${year}-${month}-${day}`;
     const apiKey = "BPbzv8zDmX";
-    const encodedLocation = encodeURIComponent(
-      `${selectedCity.city}, ${selectedCity.country}`
-    );
+    const encodedLocation = encodeURIComponent(`${selectedCity.city}, ${selectedCity.country}`);
 
-    const chartURL = `https://api.vedastro.org/api/Calculate/NorthIndianChart/Location/${encodedLocation}/Time/${formattedTime}/${formattedDate}/${timezone}/ChartType/BhavaChalit/Ayanamsa/LAHIRI/APIKey/${apiKey}`;
+    const chartURL = `https://api.vedastro.org/api/Calculate/NorthIndianChart/Location/${encodedLocation}/Time/${formattedTime}/${formattedDate}/${timezone}/ChartType/Rasi/Ayanamsa/LAHIRI/APIKey/${apiKey}`;
     const planetDataURL = `https://api.vedastro.org/api/Calculate/AllPlanetData/PlanetName/All/Location/${encodedLocation}/Time/${formattedTime}/${formattedDate}/${timezone}/Ayanamsa/LAHIRI/APIKey/${apiKey}`;
     const predictionURL = `https://api.vedastro.org/api/Calculate/HoroscopePredictions/Location/${encodedLocation}/Time/${formattedTime}/${formattedDate}/${timezone}/Ayanamsa/LAHIRI/APIKey/${apiKey}`;
 
@@ -84,7 +81,7 @@ function App() {
       setResponse({
         chartURL,
         planetData: planetJson.Payload?.AllPlanetData || [],
-        predictions: predictionJson.Payload || [],
+        predictions: predictionJson.Payload?.filter(p => !!p.PredictionText) || [],
       });
     } catch (err) {
       setResponse({ error: "Error fetching data" });
@@ -94,14 +91,10 @@ function App() {
   return (
     <div style={{ padding: 20, fontFamily: "sans-serif" }}>
       <h1>
-        <span role="img" aria-label="meditating person">🧘‍♂️</span> AstroBot Vedari
+      <span role="img" aria-label="meditating person">🧘‍♂️</span> AstroBot Vedari
       </h1>
 
-      <input
-        placeholder="Name"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-      />
+      <input placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} />
       Day:
       <select value={day} onChange={(e) => setDay(e.target.value)}>
         {[...Array(31)].map((_, i) => (
@@ -121,17 +114,9 @@ function App() {
           return <option key={y} value={y}>{y}</option>;
         })}
       </select>
-      <input
-        placeholder="HH:MM"
-        value={birthTime}
-        onChange={(e) => setBirthTime(e.target.value)}
-      />
+      <input placeholder="HH:MM" value={birthTime} onChange={(e) => setBirthTime(e.target.value)} />
+      <input placeholder="Enter city" value={citySearch} onChange={(e) => setCitySearch(e.target.value)} />
 
-      <input
-        placeholder="Enter city"
-        value={citySearch}
-        onChange={(e) => setCitySearch(e.target.value)}
-      />
       <div>
         {cityResults.map((city, idx) => (
           <div
@@ -185,7 +170,7 @@ function App() {
           </h3>
           <ul>
             {response.predictions.map((item, idx) => (
-              <li key={idx}>{item?.PredictionText || "No prediction text"}</li>
+              <li key={idx}>{item?.PredictionText}</li>
             ))}
           </ul>
         </div>
