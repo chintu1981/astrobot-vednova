@@ -20,7 +20,7 @@ function App() {
           {
             method: "GET",
             headers: {
-              "X-RapidAPI-Key": "demo-key", // Replace with your real key
+              "X-RapidAPI-Key": "c692960917msh69316d06d1e0408p182b0ejsne1e40ea437ab", // Replace with your real key
               "X-RapidAPI-Host": "wft-geo-db.p.rapidapi.com",
             },
           }
