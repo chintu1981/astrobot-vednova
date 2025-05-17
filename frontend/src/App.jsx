@@ -34,28 +34,20 @@ function App() {
     return () => clearTimeout(delayDebounce);
   }, [citySearch]);
 
-  const handleCitySelect = async (city) => {
+  const handleCitySelect = (city) => {
     setSelectedCity(city);
     setCitySearch(`${city.city}, ${city.country}`);
     setCityResults([]);
 
-    try {
-      const res = await fetch(
-        `https://api.api-ninjas.com/v1/timezone?lat=${city.latitude}&lon=${city.longitude}`,
-        {
-          headers: {
-            "X-Api-Key": "demo-key"
-          },
-        }
-      );
-      const data = await res.json();
-      const offset = data.utc_offset;
-      const sign = offset >= 0 ? "+" : "-";
-      const hours = String(Math.floor(Math.abs(offset))).padStart(2, "0");
-      const minutes = String((Math.abs(offset) * 60) % 60).padStart(2, "0");
+    // GeoDB already gives timezone offset as raw minutes
+    if (city.timezone) {
+      const offsetMinutes = city.timezone.offsetTotalMinutes || 330; // default to +05:30
+      const sign = offsetMinutes >= 0 ? "+" : "-";
+      const hours = String(Math.floor(Math.abs(offsetMinutes) / 60)).padStart(2, "0");
+      const minutes = String(Math.abs(offsetMinutes) % 60).padStart(2, "0");
       setTimezone(`${sign}${hours}:${minutes}`);
-    } catch (e) {
-      setTimezone("+00:00");
+    } else {
+      setTimezone("+05:30");
     }
   };
 
@@ -69,14 +61,19 @@ function App() {
 
     const planetDataURL = `https://api.vedastro.org/api/Calculate/AllPlanetData/PlanetName/All/Location/${encodedLocation}/Time/${formattedTime}/${formattedDate}/${timezone}/Ayanamsa/LAHIRI/APIKey/${apiKey}`;
 
+    console.log("📅 Sending to VedAstro:", { encodedLocation, formattedTime, formattedDate, timezone });
+
     try {
       const planetRes = await fetch(planetDataURL);
       const planetJson = await planetRes.json();
+      console.log("🌌 VedAstro Response:", planetJson);
+
       setResponse({
         planetData: planetJson.Payload?.AllPlanetData || []
       });
     } catch (err) {
-      setResponse({ error: "Error fetching data" });
+      console.error("❌ Error calling VedAstro:", err);
+      setResponse({ error: "Error fetching planetary data from VedAstro." });
     }
   };
 
@@ -132,7 +129,7 @@ function App() {
       {showTextKundali && Array.isArray(response?.planetData) && response.planetData.length > 0 && (
         <div>
           <h3>
-            <span role="img" aria-label="Planetary Positions">🌌</span> Planetary Positions (True Lagna-Based)
+            <span role="img" aria-label="Planetary Positions">🌌</span> Planetary Positions
           </h3>
           <ul>
             {response.planetData.map((planet, idx) => {
