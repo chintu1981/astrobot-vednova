@@ -1,68 +1,104 @@
 import React, { useState } from 'react';
+import Select from 'react-select';
+import tzlookup from 'tz-lookup';
 
-const App = () => {
-  const [day, setDay] = useState('05');
-  const [month, setMonth] = useState('06');
-  const [year, setYear] = useState('1981');
-  const [time, setTime] = useState('12:00');
-  const [location, setLocation] = useState('Rajkot, IN');
-  const [response, setResponse] = useState('');
-  const [loading, setLoading] = useState(false);
+const AstroBot = () => {
+  const [formData, setFormData] = useState({
+    name: '',
+    day: '05',
+    month: '06',
+    year: '1981',
+    time: '12:00',
+    location: { label: 'Rajkot, IN', value: { lat: 22.2969, lon: 70.7984 } },
+  });
+  const [responseText, setResponseText] = useState('');
+  const [showKundali, setShowKundali] = useState(false);
+  const [kundaliText, setKundaliText] = useState('');
 
-  const apiKey = 'BPbzv8zDmX';
+  const locationOptions = [
+    { label: 'Rajkot, IN', value: { lat: 22.2969, lon: 70.7984 } },
+    { label: 'Ahmedabad, IN', value: { lat: 23.0225, lon: 72.5714 } },
+    { label: 'Paris, FR', value: { lat: 48.8566, lon: 2.3522 } },
+    { label: 'New York, US', value: { lat: 40.7128, lon: -74.006 } }
+  ];
 
-  const buildUrl = (type, location, dateTime) => {
-    const encodedLocation = location.replace(/, /g, '-').replace(/ /g, '-');
-    return `https://api.vedastro.org/api/Calculate/${type}/Location/${encodedLocation}/Time/${dateTime}/Ayanamsa/LAHIRI/APIKey/${apiKey}`;
+  const handleChange = (field, value) => {
+    setFormData({ ...formData, [field]: value });
   };
 
-  const callApi = async (type, location, dateTime, retries = 3) => {
-    const url = buildUrl(type, location, dateTime);
-    for (let i = 0; i < retries; i++) {
-      try {
-        const res = await fetch(url);
-        const json = await res.json();
-        if (json.Status === 'Pass') return json;
-      } catch (err) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
+  const getTimezoneOffset = (lat, lon) => {
+    try {
+      const tz = tzlookup(lat, lon);
+      const now = new Date();
+      const local = new Date(now.toLocaleString('en-US', { timeZone: tz }));
+      const offset = (local.getTime() - now.getTime()) / 3600000;
+      return offset >= 0 ? `+${offset.toFixed(0).padStart(2, '0')}:00` : `${offset.toFixed(0)}:00`;
+    } catch (error) {
+      return '+00:00';
+    }
+  };
+
+  const buildVedastroUrl = (endpoint, extraPath = '') => {
+    const { day, month, year, time, location } = formData;
+    const [hour, minute] = time.split(':');
+    const { lat, lon } = location.value;
+    const offset = getTimezoneOffset(lat, lon);
+    return `https://api.vedastro.org/api/Calculate/${endpoint}/Location/${location.label.replace(/\s+/g, '')}/Time/${hour}:${minute}/${day}/${month}/${year}/${offset}${extraPath}`;
+  };
+
+  const fetchData = async () => {
+    const planetURL = buildVedastroUrl('AllPlanetData/PlanetName/All/Ayanamsa/LAHIRI/APIKey/BPbzv8zDmX');
+    const houseURL = buildVedastroUrl('AllHouseData/HouseName/All/Ayanamsa/LAHIRI/APIKey/BPbzv8zDmX');
+    const predictURL = buildVedastroUrl('HoroscopePredictions/Ayanamsa/LAHIRI/APIKey/BPbzv8zDmX');
+
+    try {
+      const [planetRes, houseRes, predictRes] = await Promise.all([
+        fetch(planetURL),
+        fetch(houseURL),
+        fetch(predictURL)
+      ]);
+
+      const planetJson = await planetRes.json();
+      const houseJson = await houseRes.json();
+      const predictJson = await predictRes.json();
+
+      const isPlanetOk = planetJson.Status === 'Pass';
+      const isHouseOk = houseJson.Status === 'Pass';
+      const isPredictOk = predictJson.Status === 'Pass';
+
+      let message = `Vedari Says:\n`;
+      message += `- 🖐️  Planet Data: ${isPlanetOk ? '✅ Loaded' : '❌ Failed'}\n`;
+      message += `- 🏠 House Data: ${isHouseOk ? '✅ Loaded' : '❌ Failed'}\n`;
+      if (isPredictOk) {
+        message += `- 📜 Predictions:\n`;
+        for (const item of predictJson.Payload) {
+          message += `  • ${item.Name} ➜ ${item.Description}\n`;
+        }
       }
+
+      setResponseText(message);
+
+      // Build vertical kundali
+      if (isPlanetOk) {
+        const grouped = {};
+        for (const obj of planetJson.Payload.AllPlanetData) {
+          for (const [planet, data] of Object.entries(obj)) {
+            const house = data.HousePlanetOccupiesBasedOnLongitudes;
+            if (!grouped[house]) grouped[house] = [];
+            grouped[house].push(planet);
+          }
+        }
+        let chart = '📊 Kundali Chart:\n';
+        Object.keys(grouped).sort().forEach(h => {
+          chart += `${h}: ${grouped[h].join(', ')}\n`;
+        });
+        setKundaliText(chart);
+      } else {
+        setKundaliText('Kundali could not be loaded.');
+      }
+    } catch (error) {
+      setResponseText('❌ Failed to fetch data.');
     }
-    return { Status: 'Fail' };
-  };
-
-  const formatDateTime = () => {
-    const [hr, min] = time.split(':');
-    return `${hr}:${min}/${day}/${month}/${year}/+05:30`; // India offset assumed
-  };
-
-  const handleClick = async () => {
-    setLoading(true);
-    setResponse('Vedari is thinking...');
-    const dateTime = formatDateTime();
-
-    const planetData = await callApi('AllPlanetData/PlanetName/All', location, dateTime);
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    const houseData = await callApi('AllHouseData/HouseName/All', location, dateTime);
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    const predictionData = await callApi('HoroscopePredictions', location, dateTime);
-
-    const formatted = [
-      `Vedari Says:`,
-      `- 🖐️ Planet Data: ${planetData.Status === 'Pass' ? '✅ Loaded' : '❌ Failed to fetch'}`,
-      `- 🏠 House Data: ${houseData.Status === 'Pass' ? '✅ Loaded' : '❌ Failed to fetch'}`,
-      `- 📜 Predictions:`,
-    ];
-
-    if (predictionData.Status === 'Pass') {
-      predictionData.Payload.slice(0, 5).forEach(p => {
-        formatted.push(`  • ${p.Name} → ${p.Description}`);
-      });
-    } else {
-      formatted.push(`  ❌ Failed to fetch`);
-    }
-
-    setResponse(formatted.join('\n'));
-    setLoading(false);
   };
 
   return (
@@ -70,27 +106,28 @@ const App = () => {
       <h1>
         <span role="img" aria-label="meditating person">🧘‍♂️</span> AstroBot Vedari
       </h1>
-      <input placeholder="Name" />
-      Day:
-      <select value={day} onChange={e => setDay(e.target.value)}>
-        {[...Array(31)].map((_, i) => <option key={i}>{String(i + 1).padStart(2, '0')}</option>)}
+      <input placeholder="Name" value={formData.name} onChange={(e) => handleChange('name', e.target.value)} />
+      Day: <select value={formData.day} onChange={(e) => handleChange('day', e.target.value)}>
+        {[...Array(31).keys()].map(d => <option key={d + 1}>{String(d + 1).padStart(2, '0')}</option>)}
       </select>
-      Month:
-      <select value={month} onChange={e => setMonth(e.target.value)}>
-        {[...Array(12)].map((_, i) => <option key={i}>{String(i + 1).padStart(2, '0')}</option>)}
+      Month: <select value={formData.month} onChange={(e) => handleChange('month', e.target.value)}>
+        {[...Array(12).keys()].map(m => <option key={m + 1}>{String(m + 1).padStart(2, '0')}</option>)}
       </select>
-      Year:
-      <select value={year} onChange={e => setYear(e.target.value)}>
+      Year: <select value={formData.year} onChange={(e) => handleChange('year', e.target.value)}>
         {Array.from({ length: 100 }, (_, i) => 2025 - i).map(y => <option key={y}>{y}</option>)}
       </select>
-      <input value={time} onChange={e => setTime(e.target.value)} />
-      <input value={location} onChange={e => setLocation(e.target.value)} />
-      <button onClick={handleClick}>Ask Vedari</button>
-      <button onClick={() => setResponse(prev => JSON.stringify(prev, null, 2))}>Show Text Kundali</button>
-      <button onClick={() => setResponse('')}>Hide Text Kundali</button>
-      <pre>{loading ? 'Loading...' : response}</pre>
+      <input value={formData.time} onChange={(e) => handleChange('time', e.target.value)} />
+      <Select options={locationOptions} value={formData.location} onChange={(val) => handleChange('location', val)} styles={{ container: base => ({ ...base, display: 'inline-block', width: 200 }) }} />
+
+      <div>
+        <button onClick={fetchData}>Ask Vedari</button>
+        <button onClick={() => setShowKundali(true)}>Show Text Kundali</button>
+        <button onClick={() => setShowKundali(false)}>Hide Text Kundali</button>
+      </div>
+      <pre>{responseText}</pre>
+      {showKundali && <pre>{kundaliText}</pre>}
     </div>
   );
 };
 
-export default App;
+export default AstroBot;
