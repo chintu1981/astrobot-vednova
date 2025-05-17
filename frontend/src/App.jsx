@@ -29,6 +29,9 @@ function App() {
       const planetJson = await planetRes.json();
       const predictionJson = await predictionRes.json();
 
+      console.log("🌍 Planet JSON:", planetJson);
+      console.log("🧠 Prediction JSON:", predictionJson);
+
       setResponse({
         chartURL,
         planetData: planetJson.Payload?.AllPlanetData || [],
@@ -94,7 +97,7 @@ function App() {
           <h3>
             <span role="img" aria-label="North Indian Chart">🧭</span> North Indian Chart
           </h3>
-          <img src={response.chartURL} alt="North Indian Chart" style={{ border: "1px solid gray" }} />
+          <img src={response.chartURL} alt="North Indian Chart" style={{ border: "1px solid gray", maxWidth: "90%" }} />
         </div>
       )}
 
@@ -106,9 +109,11 @@ function App() {
           <ul>
             {response.planetData.map((planet, idx) => {
               const [name, data] = Object.entries(planet)[0];
+              const house = data?.HousePlanetOccupiesBasedOnLongitudes || "Unknown";
+              const benefic = data?.IsPlanetBenefic ? "True" : "False";
               return (
                 <li key={idx}>
-                  <strong>{name}</strong>: {data?.HousePlanetOccupies?.Name || "Unknown"} | Benefic: {data?.IsPlanetBenefic ? "True" : "False"}
+                  <strong>{name}</strong>: {house} | Benefic: {benefic}
                 </li>
               );
             })}
