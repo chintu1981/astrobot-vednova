@@ -1,124 +1,171 @@
 import React, { useState, useEffect } from "react";
+import axios from "axios";
 
 function App() {
   const [name, setName] = useState("");
   const [day, setDay] = useState("05");
   const [month, setMonth] = useState("06");
   const [year, setYear] = useState("1981");
-  const [birthTime, setBirthTime] = useState("12:00");
-  const [locationList, setLocationList] = useState([]);
-  const [selectedLocation, setSelectedLocation] = useState("");
+  const [time, setTime] = useState("12:00");
+  const [cityQuery, setCityQuery] = useState("");
+  const [cities, setCities] = useState([]);
+  const [selectedCity, setSelectedCity] = useState(null);
   const [response, setResponse] = useState(null);
-  const [showTextKundali, setShowTextKundali] = useState(false);
+  const [showText, setShowText] = useState(false);
 
+  const geoDBApiKey = "c692960917msh69316d06d1e0408p182b0ejsne1e40ea437ab"; // <-- Add your RapidAPI key here
+  const ninjaApiKey = "wBK21wCy9SmT29zbfnAjOA==CmbJZ2DKxu3EiQ4m";
+
+  // Autocomplete for cities using GeoDB
   useEffect(() => {
-    const fetchLocations = async () => {
+    const fetchCities = async () => {
+      if (cityQuery.length < 3) return;
       try {
-        const res = await fetch("https://api.vedastro.org/api/LocationList");
-        const data = await res.json();
-        const locs = Array.isArray(data?.Payload)
-          ? data.Payload.map((loc) => loc.Name).sort()
-          : [];
-        setLocationList(locs);
-      } catch (err) {
-        console.error("❌ Error fetching VedAstro locations", err);
-        setLocationList([]);
+        const res = await axios.get(
+          `https://wft-geo-db.p.rapidapi.com/v1/geo/cities`,
+          {
+            params: { namePrefix: cityQuery },
+            headers: {
+              "X-RapidAPI-Key": geoDBApiKey,
+              "X-RapidAPI-Host": "wft-geo-db.p.rapidapi.com",
+            },
+          }
+        );
+        setCities(res.data.data);
+      } catch (error) {
+        console.error("GeoDB fetch error:", error);
       }
     };
 
-    fetchLocations();
-  }, []);
+    const delayDebounce = setTimeout(fetchCities, 500);
+    return () => clearTimeout(delayDebounce);
+  }, [cityQuery]);
 
-  const handleSubmit = async () => {
-    if (!selectedLocation) return alert("Please select a valid location from the list");
-    const [hour, minute] = birthTime.split(":");
-    const formattedTime = `${hour.padStart(2, "0")}:${minute.padStart(2, "0")}:00`;
+  const fetchTimezone = async (lat, lon) => {
+    try {
+      const res = await axios.get(
+        `https://api.api-ninjas.com/v1/timezone?lat=${lat}&lon=${lon}`,
+        {
+          headers: { "X-Api-Key": ninjaApiKey },
+        }
+      );
+      return res.data.utc_offset;
+    } catch (error) {
+      console.error("Timezone fetch error:", error);
+      return null;
+    }
+  };
+
+  const handleAskVedari = async () => {
+    if (!selectedCity) {
+      alert("Please select a city from suggestions.");
+      return;
+    }
+
+    const { name: cityName, latitude, longitude, country } = selectedCity;
+    const locationName = `${cityName}, ${country}`;
+    const timezoneOffset = await fetchTimezone(latitude, longitude);
+
+    if (!timezoneOffset) {
+      alert("Failed to get timezone. Try another city.");
+      return;
+    }
+
+    const location = {
+      Name: locationName,
+      GeoLat: latitude,
+      GeoLong: longitude,
+      TimeZone: timezoneOffset,
+    };
+
     const formattedDate = `${year}-${month}-${day}`;
-    const timezone = "+05:30";
-    const apiKey = "BPbzv8zDmX";
-    const encodedLocation = encodeURIComponent(selectedLocation);
+    const formattedTime = time + ":00";
 
-    const chartJsonURL = `https://api.vedastro.org/api/Calculate/ChartJSON/Location/${encodedLocation}/Time/${formattedTime}/${formattedDate}/${timezone}/Ayanamsa/LAHIRI/APIKey/${apiKey}`;
+    const payload = {
+      name,
+      location,
+      formattedDate,
+      formattedTime,
+    };
 
-    console.log("📅 Sending to VedAstro:", { encodedLocation, formattedTime, formattedDate, timezone });
+    console.log("Sending to VedAstro:", payload);
 
     try {
-      const res = await fetch(chartJsonURL);
-      const data = await res.json();
-      console.log("🧠 VedAstro ChartJSON:", data);
-
-      if (!data.Payload || !data.Payload.PlanetList) {
-        setResponse({ error: "VedAstro ChartJSON returned no data. Try another location." });
-        return;
-      }
-
-      setResponse({ planetList: data.Payload.PlanetList });
-    } catch (err) {
-      console.error("❌ Error fetching ChartJSON:", err);
-      setResponse({ error: "Failed to load data from VedAstro." });
+      const res = await axios.post(
+        `https://api.vedastro.org/api/ChartJSON`,
+        payload
+      );
+      console.log("VedAstro ChartJSON:", res.data);
+      setResponse(res.data);
+    } catch (error) {
+      console.error("VedAstro Error:", error);
+      setResponse({ Status: "Fail", Payload: "Error contacting VedAstro API" });
     }
   };
 
   return (
-    <div style={{ padding: 20, fontFamily: "sans-serif" }}>
+    <div style={{ padding: "2rem" }}>
       <h1>
         <span role="img" aria-label="meditating person">🧘‍♂️</span> AstroBot Vedari
       </h1>
-
-      <input placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} />
-      Day:
-      <select value={day} onChange={(e) => setDay(e.target.value)}>
-        {[...Array(31)].map((_, i) => (
-          <option key={i} value={String(i + 1).padStart(2, "0")}>{String(i + 1).padStart(2, "0")}</option>
-        ))}
-      </select>
-      Month:
-      <select value={month} onChange={(e) => setMonth(e.target.value)}>
-        {[...Array(12)].map((_, i) => (
-          <option key={i} value={String(i + 1).padStart(2, "0")}>{String(i + 1).padStart(2, "0")}</option>
-        ))}
-      </select>
-      Year:
-      <select value={year} onChange={(e) => setYear(e.target.value)}>
-        {[...Array(100)].map((_, i) => {
-          const y = 1980 + i;
-          return <option key={y} value={y}>{y}</option>;
-        })}
-      </select>
-      <input placeholder="HH:MM" value={birthTime} onChange={(e) => setBirthTime(e.target.value)} />
-
-      <select
-        value={selectedLocation}
-        onChange={(e) => setSelectedLocation(e.target.value)}
-        style={{ marginLeft: 10 }}>
-        <option value="">-- Select Location --</option>
-        {Array.isArray(locationList) && locationList.map((loc, idx) => (
-          <option key={idx} value={loc}>{loc}</option>
-        ))}
-      </select>
-
-      <button onClick={handleSubmit}>Ask Vedari</button>
-      <button onClick={() => setShowTextKundali(!showTextKundali)} style={{ marginLeft: 10 }}>
-        {showTextKundali ? "Hide" : "Show"} Text Kundali
-      </button>
+      <div>
+        <input
+          type="text"
+          placeholder="Name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
+        Day:
+        <select value={day} onChange={(e) => setDay(e.target.value)}>
+          {Array.from({ length: 31 }, (_, i) => (
+            <option key={i + 1}>{String(i + 1).padStart(2, "0")}</option>
+          ))}
+        </select>
+        Month:
+        <select value={month} onChange={(e) => setMonth(e.target.value)}>
+          {Array.from({ length: 12 }, (_, i) => (
+            <option key={i + 1}>{String(i + 1).padStart(2, "0")}</option>
+          ))}
+        </select>
+        Year:
+        <select value={year} onChange={(e) => setYear(e.target.value)}>
+          {Array.from({ length: 100 }, (_, i) => (
+            <option key={i}>{1980 + i}</option>
+          ))}
+        </select>
+        <input
+          type="text"
+          value={time}
+          onChange={(e) => setTime(e.target.value)}
+          placeholder="12:00"
+        />
+        <input
+          list="city-list"
+          placeholder="Start typing city..."
+          value={cityQuery}
+          onChange={(e) => setCityQuery(e.target.value)}
+        />
+        <datalist id="city-list">
+          {cities.map((city) => (
+            <option
+              key={city.id}
+              value={`${city.name}, ${city.country}`}
+              onClick={() => setSelectedCity(city)}
+            />
+          ))}
+        </datalist>
+        <button onClick={handleAskVedari}>Ask Vedari</button>
+        <button onClick={() => setShowText(!showText)}>
+          {showText ? "Hide Text Kundali" : "Show Text Kundali"}
+        </button>
+      </div>
 
       <hr />
       <h2>Vedari Says:</h2>
-      {response?.error && <div style={{ color: "red" }}>{response.error}</div>}
-
-      {showTextKundali && Array.isArray(response?.planetList) && response.planetList.length > 0 && (
-        <div>
-          <h3>
-            <span role="img" aria-label="Planetary Positions">🌌</span> Planetary Positions (ChartJSON)
-          </h3>
-          <ul>
-            {response.planetList.map((planet, idx) => (
-              <li key={idx}>
-                <strong>{planet.PlanetName}</strong>: House: {planet.House} | Rashi: {planet.Sign} | Degree: {planet.Longitude?.Degree || "-"}°
-              </li>
-            ))}
-          </ul>
-        </div>
+      {response && showText && (
+        <pre style={{ whiteSpace: "pre-wrap" }}>
+          {JSON.stringify(response.Payload, null, 2)}
+        </pre>
       )}
     </div>
   );
