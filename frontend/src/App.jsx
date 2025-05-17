@@ -13,7 +13,7 @@ function App() {
     e.preventDefault();
     try {
       const res = await axios.post(process.env.REACT_APP_API_URL, form);
-      setResponse(res.data.response);
+      setResponse(JSON.stringify(res.data, null, 2)); // Or res.data.message or res.data.data if you prefer
     } catch (err) {
       setResponse("Something went wrong. Check server or API key.");
     }
