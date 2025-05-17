@@ -1,99 +1,108 @@
-import React, { useState } from 'react';
-import Select from 'react-select/async';
+import React, { useState } from "react";
+import AsyncSelect from "react-select/async";
+import tzlookup from "tz-lookup";
 
-function App() {
-  const [name, setName] = useState('');
-  const [day, setDay] = useState('05');
-  const [month, setMonth] = useState('06');
-  const [year, setYear] = useState('1981');
-  const [time, setTime] = useState('12:00');
+export default function App() {
+  const [name, setName] = useState("");
+  const [day, setDay] = useState("05");
+  const [month, setMonth] = useState("06");
+  const [year, setYear] = useState("1981");
+  const [time, setTime] = useState("12:00");
   const [location, setLocation] = useState(null);
-  const [chartData, setChartData] = useState('');
+  const [response, setResponse] = useState("");
 
-  const fetchCityOptions = async (inputValue) => {
-    if (!inputValue) return [];
-
-    const response = await fetch(`https://api.api-ninjas.com/v1/city?name=${inputValue}`, {
-      headers: {
-        'X-Api-Key': 'wBK21wCy9SmT29zbfnAjOA==CmbJZ2DKxu3EiQ4m'
-      }
-    });
-    const data = await response.json();
-
-    return data.map(city => ({
-      label: `${city.name}, ${city.country}`,
-      value: city.name,
-      lat: city.latitude,
-      lon: city.longitude,
-      timezone: city.timezone
-    }));
+  const loadOptions = async (inputValue, callback) => {
+    if (!inputValue) return callback([]);
+    try {
+      const response = await fetch(`https://api.api-ninjas.com/v1/city?name=${inputValue}`, {
+        headers: { 'X-Api-Key': 'wBK21wCy9SmT29zbfnAjOA==CmbJZ2DKxu3EiQ4m' },
+      });
+      const data = await response.json();
+      const options = data.map(city => ({
+        label: `${city.name}, ${city.country}`,
+        value: city,
+      }));
+      callback(options);
+    } catch (error) {
+      console.error("Location fetch error:", error);
+      callback([]);
+    }
   };
 
-  const handleChartRequest = async () => {
+  const handleLocationChange = (selectedOption) => {
+    setLocation(selectedOption.value);
+  };
+
+  const handleAskVedari = async () => {
     if (!location) {
       alert("Please select a city from suggestions.");
       return;
     }
 
-    const date = `${year}-${month}-${day}`;
-    const timezone = location.timezone || "+05:30";
-
-    const requestBody = {
-      birthTime: {
-        date: date,
-        time: time,
-        timezone: timezone
-      },
-      location: {
-        latitude: location.lat,
-        longitude: location.lon,
-        name: location.label
-      }
-    };
-
     try {
-      const response = await fetch("https://api.vedastro.org/api/ChartJSON", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(requestBody)
-      });
+      const latitude = location.latitude;
+      const longitude = location.longitude;
+      const timezone = tzlookup(latitude, longitude);
 
-      const data = await response.json();
-      console.log("VedAstro ChartJSON:", data);
-      setChartData(JSON.stringify(data, null, 2));
+      const date = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+      const formattedTime = `${date}T${time}:00+05:30`; // hardcoded IST for now
+      const locationString = `${latitude},${longitude}`;
+
+      const chartUrl = `https://api.vedastro.org/ChartJSON/${formattedTime}/${locationString}`;
+
+      const chartRes = await fetch(chartUrl);
+      if (!chartRes.ok) throw new Error("Chart fetch failed.");
+      const chartData = await chartRes.json();
+
+      setResponse(JSON.stringify(chartData, null, 2));
     } catch (err) {
-      console.error("ChartJSON error:", err);
-      setChartData('"Chart fetch failed."');
+      console.error("ChartJSON error:", err.message);
+      setResponse("Chart fetch failed.");
     }
   };
 
   return (
-    <div style={{ padding: '20px' }}>
+    <div>
       <h1>
         <span role="img" aria-label="meditating person">🧘‍♂️</span> AstroBot Vedari
       </h1>
-      <input placeholder="Name" value={name} onChange={e => setName(e.target.value)} />
-      Day: <select value={day} onChange={e => setDay(e.target.value)}>{[...Array(31).keys()].map(i => <option key={i+1}>{(i+1).toString().padStart(2, '0')}</option>)}</select>
-      Month: <select value={month} onChange={e => setMonth(e.target.value)}>{[...Array(12).keys()].map(i => <option key={i+1}>{(i+1).toString().padStart(2, '0')}</option>)}</select>
-      Year: <select value={year} onChange={e => setYear(e.target.value)}>{[...Array(100).keys()].map(i => <option key={i}>{(2025 - i).toString()}</option>)}</select>
-      <input value={time} onChange={e => setTime(e.target.value)} style={{ width: '70px' }} />
-      <Select
-        cacheOptions
-        loadOptions={fetchCityOptions}
-        defaultOptions
-        placeholder="Select a location"
-        onChange={setLocation}
-        value={location}
-      />
-      <button onClick={handleChartRequest}>Ask Vedari</button>
-      <button onClick={() => setChartData('')}>Hide Text Kundali</button>
+      <div>
+        <input
+          placeholder="Name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
+        Day:
+        <select value={day} onChange={(e) => setDay(e.target.value)}>
+          {[...Array(31).keys()].map(d => <option key={d+1}>{String(d+1).padStart(2, '0')}</option>)}
+        </select>
+        Month:
+        <select value={month} onChange={(e) => setMonth(e.target.value)}>
+          {[...Array(12).keys()].map(m => <option key={m+1}>{String(m+1).padStart(2, '0')}</option>)}
+        </select>
+        Year:
+        <select value={year} onChange={(e) => setYear(e.target.value)}>
+          {Array.from({ length: 100 }, (_, i) => 2024 - i).map(y => <option key={y}>{y}</option>)}
+        </select>
+        <input
+          value={time}
+          onChange={(e) => setTime(e.target.value)}
+        />
+        <AsyncSelect
+          cacheOptions
+          defaultOptions
+          loadOptions={loadOptions}
+          onChange={handleLocationChange}
+          placeholder="Type city name..."
+        />
+        <button onClick={handleAskVedari}>Ask Vedari</button>
+        <button onClick={() => setResponse("")}>Hide Text Kundali</button>
+      </div>
       <hr />
-      <h2>Vedari Says:</h2>
-      <pre>{chartData}</pre>
+      <div>
+        <h2>Vedari Says:</h2>
+        <pre>{response}</pre>
+      </div>
     </div>
   );
 }
-
-export default App;
