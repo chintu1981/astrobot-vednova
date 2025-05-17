@@ -2,114 +2,94 @@ import React, { useState } from 'react';
 import Select from 'react-select/async';
 
 const AstroBotVedari = () => {
+  const [name, setName] = useState('');
   const [day, setDay] = useState('05');
   const [month, setMonth] = useState('06');
   const [year, setYear] = useState('1981');
   const [time, setTime] = useState('12:00');
-  const [location, setLocation] = useState({ label: 'Rajkot, IN', value: 'Rajkot, IN' });
-  const [name, setName] = useState('');
-  const [textKundali, setTextKundali] = useState('');
-  const [vedariSays, setVedariSays] = useState('');
-  const [statusPlanet, setStatusPlanet] = useState(null);
-  const [statusHouse, setStatusHouse] = useState(null);
+  const [location, setLocation] = useState(null);
+  const [vedariResponse, setVedariResponse] = useState('');
+  const [showTextKundali, setShowTextKundali] = useState(false);
 
-  const VEDASTRO_API_KEY = process.env.REACT_APP_VEDASTRO_API_KEY;
-  const NINJA_API_KEY = process.env.REACT_APP_NINJA_API_KEY;
-  const OPENAI_API_KEY = process.env.REACT_APP_OPENAI_API_KEY;
+  const vedastroKey = process.env.REACT_APP_VEDASTRO_API_KEY;
+  const openaiKey = process.env.REACT_APP_OPENAI_API_KEY;
+  const ninjaKey = process.env.REACT_APP_NINJA_API_KEY;
 
   const fetchLocationOptions = async (inputValue) => {
     if (!inputValue) return [];
     const response = await fetch(`https://api.api-ninjas.com/v1/geocoding?city=${inputValue}`, {
-      headers: { 'X-Api-Key': NINJA_API_KEY }
+      headers: { 'X-Api-Key': ninjaKey }
     });
     const data = await response.json();
     return data.map(loc => ({
       label: `${loc.name}, ${loc.country}`,
-      value: `${loc.name}, ${loc.country}`
+      value: { lat: loc.latitude, lon: loc.longitude, name: loc.name }
     }));
   };
 
-  const fetchChartData = async () => {
-    const datetime = `${time}:00/${year}-${month}-${day}`;
-    const loc = location.label.split(',')[0];
-    const baseURL = 'https://api.vedastro.org/api/Calculate';
+  const buildTimeUrl = () => {
+    const [hour, minute] = time.split(':');
+    return `Time/${hour}:${minute}/${day}/${month}/${year}/+05:30`;
+  };
 
-    const planetURL = `${baseURL}/AllPlanetData/PlanetName/All/Location/${loc}/Time/${datetime}/Ayanamsa/LAHIRI/APIKey/${VEDASTRO_API_KEY}`;
-    const houseURL = `${baseURL}/AllHouseData/HouseName/All/Location/${loc}/Time/${datetime}/Ayanamsa/LAHIRI/APIKey/${VEDASTRO_API_KEY}`;
-    const predictURL = `${baseURL}/HoroscopePredictions/Location/${loc}/Time/${datetime}/Ayanamsa/LAHIRI/APIKey/${VEDASTRO_API_KEY}`;
+  const handleAskVedari = async () => {
+    if (!location) return;
+    const loc = `Location/${location.value.name}`;
+    const timeUrl = buildTimeUrl();
 
+    const planetUrl = `https://api.vedastro.org/api/Calculate/AllPlanetData/PlanetName/All/${loc}/${timeUrl}/Ayanamsa/LAHIRI/APIKey/${vedastroKey}`;
+    const houseUrl = `https://api.vedastro.org/api/Calculate/AllHouseData/HouseName/All/${loc}/${timeUrl}/Ayanamsa/LAHIRI/APIKey/${vedastroKey}`;
+    const predictionsUrl = `https://api.vedastro.org/api/Calculate/HoroscopePredictions/${loc}/${timeUrl}/Ayanamsa/LAHIRI/APIKey/${vedastroKey}`;
+
+    let result = 'Vedari Says:';
     try {
-      const [planetRes, houseRes, predictRes] = await Promise.all([
-        fetch(planetURL),
-        fetch(houseURL),
-        fetch(predictURL)
+      const [planetRes, houseRes, predRes] = await Promise.all([
+        fetch(planetUrl),
+        fetch(houseUrl),
+        fetch(predictionsUrl)
       ]);
 
       const planetData = await planetRes.json();
       const houseData = await houseRes.json();
-      const predictData = await predictRes.json();
+      const predictionData = await predRes.json();
 
-      setStatusPlanet(planetData.Status);
-      setStatusHouse(houseData.Status);
+      result += `\n- 🖐️ Planet Data: ${planetData.Status === 'Pass' ? '✅ Loaded' : '❌ Failed'}`;
+      result += `\n- 🏠 House Data: ${houseData.Status === 'Pass' ? '✅ Loaded' : '❌ Failed'}`;
 
-      if (predictData.Status === 'Pass') {
-        const commentary = await getGPTCommentary(predictData.Payload);
-        setVedariSays(commentary);
+      if (predictionData.Status === 'Pass') {
+        result += `\n📜 Predictions:`;
+        predictionData.Payload.forEach(pred => {
+          result += `\n • ${pred.Name} → ${pred.Description}`;
+        });
       } else {
-        setVedariSays('GPT Commentary failed.');
+        result += '\nGPT Commentary failed.';
       }
 
     } catch (err) {
-      console.error('Fetch error:', err);
-      setVedariSays('Failed to fetch chart data.');
+      result += '\nSomething went wrong. Try again.';
     }
-  };
-
-  const getGPTCommentary = async (predictions) => {
-    try {
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${OPENAI_API_KEY}`
-        },
-        body: JSON.stringify({
-          model: 'gpt-4',
-          messages: [
-            { role: 'system', content: 'You are a Vedic astrology guru. Analyze these planetary prediction tags and provide a cosmic-style interpretation for a client.' },
-            { role: 'user', content: JSON.stringify(predictions) }
-          ]
-        })
-      });
-      const data = await response.json();
-      return data.choices[0].message.content;
-    } catch (error) {
-      console.error('GPT Error:', error);
-      return 'Could not generate GPT commentary.';
-    }
+    setVedariResponse(result);
   };
 
   return (
-    <div>
+    <div style={{ padding: '20px', fontFamily: 'monospace' }}>
       <h1>
         <span role="img" aria-label="meditating person">🧘‍♂️</span> AstroBot Vedari
       </h1>
       <div>
-        <input placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} />
-        Day:<select value={day} onChange={e => setDay(e.target.value)}>{[...Array(31)].map((_, i) => <option key={i + 1}>{String(i + 1).padStart(2, '0')}</option>)}</select>
-        Month:<select value={month} onChange={e => setMonth(e.target.value)}>{[...Array(12)].map((_, i) => <option key={i + 1}>{String(i + 1).padStart(2, '0')}</option>)}</select>
-        Year:<select value={year} onChange={e => setYear(e.target.value)}>{[...Array(100)].map((_, i) => <option key={1925 + i}>{1925 + i}</option>)}</select>
-        <input value={time} onChange={e => setTime(e.target.value)} />
-        <Select cacheOptions loadOptions={fetchLocationOptions} defaultOptions value={location} onChange={setLocation} />
+        <input placeholder="Name" onChange={e => setName(e.target.value)} />
+        Day: <select value={day} onChange={e => setDay(e.target.value)}>{Array.from({ length: 31 }, (_, i) => <option key={i + 1}>{String(i + 1).padStart(2, '0')}</option>)}</select>
+        Month: <select value={month} onChange={e => setMonth(e.target.value)}>{Array.from({ length: 12 }, (_, i) => <option key={i + 1}>{String(i + 1).padStart(2, '0')}</option>)}</select>
+        Year: <select value={year} onChange={e => setYear(e.target.value)}>{Array.from({ length: 100 }, (_, i) => <option key={1980 + i}>{1980 + i}</option>)}</select>
+        <input placeholder="12:00" value={time} onChange={e => setTime(e.target.value)} />
+        <Select cacheOptions loadOptions={fetchLocationOptions} defaultOptions onChange={setLocation} placeholder="Rajkot, IN" />
+        <button onClick={handleAskVedari}>Ask Vedari</button>
+        <button onClick={() => setShowTextKundali(true)}>Show Text Kundali</button>
+        <button onClick={() => setShowTextKundali(false)}>Hide Text Kundali</button>
       </div>
-      <button onClick={fetchChartData}>Ask Vedari</button>
-      <button onClick={() => setTextKundali(vedariSays)}>Show Text Kundali</button>
-      <button onClick={() => setTextKundali('')}>Hide Text Kundali</button>
       <pre>
-        Vedari Says:
-        {statusPlanet && `- 🖐️ Planet Data: ${statusPlanet === 'Pass' ? '✅ Loaded' : '❌ Failed'}`}
-        {statusHouse && `\n- 🏠 House Data: ${statusHouse === 'Pass' ? '✅ Loaded' : '❌ Failed'}`}
-        {textKundali || vedariSays}
+        {vedariResponse}
+        {showTextKundali && vedariResponse.includes('Predictions') ? '\n\n[Text Kundali here in future version]' : ''}
       </pre>
     </div>
   );
