@@ -36,7 +36,7 @@ function App() {
 
   const handleCitySelect = (city) => {
     setSelectedCity(city);
-    setCitySearch(city.city);
+    setCitySearch(`${city.city}, ${city.country}`);
     setCityResults([]);
 
     if (city.timezone) {
@@ -56,28 +56,26 @@ function App() {
     const formattedTime = `${hour.padStart(2, "0")}:${minute.padStart(2, "0")}:00`;
     const formattedDate = `${year}-${month}-${day}`;
     const apiKey = "BPbzv8zDmX";
-    const encodedLocation = encodeURIComponent(selectedCity.city);
+    const encodedLocation = encodeURIComponent(`${selectedCity.city}, ${selectedCity.country}`);
 
-    const planetDataURL = `https://api.vedastro.org/api/Calculate/AllPlanetData/PlanetName/All/Location/${encodedLocation}/Time/${formattedTime}/${formattedDate}/${timezone}/Ayanamsa/LAHIRI/APIKey/${apiKey}`;
+    const chartJsonURL = `https://api.vedastro.org/api/Calculate/ChartJSON/Location/${encodedLocation}/Time/${formattedTime}/${formattedDate}/${timezone}/Ayanamsa/LAHIRI/APIKey/${apiKey}`;
 
     console.log("📅 Sending to VedAstro:", { encodedLocation, formattedTime, formattedDate, timezone });
 
     try {
-      const planetRes = await fetch(planetDataURL);
-      const planetJson = await planetRes.json();
-      console.log("🌌 VedAstro Response:", planetJson);
+      const res = await fetch(chartJsonURL);
+      const data = await res.json();
+      console.log("🧠 VedAstro ChartJSON:", data);
 
-      if (!planetJson.Payload || !planetJson.Payload.AllPlanetData) {
-        setResponse({ error: "VedAstro returned no data. Try simplifying city name (e.g., 'Rajkot')." });
+      if (!data.Payload || !data.Payload.PlanetList) {
+        setResponse({ error: "VedAstro ChartJSON returned no data. Try a major city like 'Mumbai'." });
         return;
       }
 
-      setResponse({
-        planetData: planetJson.Payload.AllPlanetData
-      });
+      setResponse({ planetList: data.Payload.PlanetList });
     } catch (err) {
-      console.error("❌ Error calling VedAstro:", err);
-      setResponse({ error: "Error fetching planetary data from VedAstro." });
+      console.error("❌ Error fetching ChartJSON:", err);
+      setResponse({ error: "Failed to load data from VedAstro." });
     }
   };
 
@@ -130,23 +128,17 @@ function App() {
       <h2>Vedari Says:</h2>
       {response?.error && <div style={{ color: "red" }}>{response.error}</div>}
 
-      {showTextKundali && Array.isArray(response?.planetData) && response.planetData.length > 0 && (
+      {showTextKundali && Array.isArray(response?.planetList) && response.planetList.length > 0 && (
         <div>
           <h3>
-            <span role="img" aria-label="Planetary Positions">🌌</span> Planetary Positions (True Lagna-Based)
+            <span role="img" aria-label="Planetary Positions">🌌</span> Planetary Positions (ChartJSON)
           </h3>
           <ul>
-            {response.planetData.map((planet, idx) => {
-              const [name, data] = Object.entries(planet)[0];
-              const house = data?.HousePlanetOccupies?.Name || "Unknown";
-              const rashi = data?.Sign?.Name || "-";
-              const degree = data?.Longitude?.Degree || "-";
-              return (
-                <li key={idx}>
-                  <strong>{name}</strong>: House: {house} | Rashi: {rashi} | Degree: {degree}°
-                </li>
-              );
-            })}
+            {response.planetList.map((planet, idx) => (
+              <li key={idx}>
+                <strong>{planet.PlanetName}</strong>: House: {planet.House} | Rashi: {planet.Sign} | Degree: {planet.Longitude?.Degree || "-"}°
+              </li>
+            ))}
           </ul>
         </div>
       )}
