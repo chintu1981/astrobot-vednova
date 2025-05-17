@@ -1,38 +1,84 @@
 import React, { useState } from "react";
-import axios from "axios";
+import "./App.css";
 
 function App() {
-  const [form, setForm] = useState({ name: "", date: "", time: "", place: "" });
-  const [response, setResponse] = useState("");
+  const [name, setName] = useState("");
+  const [day, setDay] = useState("01");
+  const [month, setMonth] = useState("01");
+  const [year, setYear] = useState("1980");
+  const [time, setTime] = useState("");
+  const [place, setPlace] = useState("");
+  const [result, setResult] = useState("");
 
-  const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-  };
+  const handleSubmit = async () => {
+    const birthDate = `${year}-${month}-${day}`;
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+    const response = await fetch("https://api.vedastro.org/planet-positions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": "BPbzv8zDmX"
+      },
+      body: JSON.stringify({
+        name,
+        birth_date: birthDate,
+        birth_time: time,
+        birth_place: place
+      })
+    });
+
     try {
-      const res = await axios.post(process.env.REACT_APP_API_URL, form);
-      setResponse(JSON.stringify(res.data, null, 2)); // Or res.data.message or res.data.data if you prefer
+      const data = await response.json();
+      setResult(JSON.stringify(data, null, 2));
     } catch (err) {
-      setResponse("Something went wrong. Check server or API key.");
+      setResult("Error parsing response");
     }
   };
 
+  const generateOptions = (start, end) => {
+    const options = [];
+    for (let i = start; i <= end; i++) {
+      options.push(<option key={i}>{i.toString().padStart(2, '0')}</option>);
+    }
+    return options;
+  };
+
   return (
-    <div style={{ padding: "2rem", fontFamily: "sans-serif" }}>
-      <h1>
-        <span role="img" aria-label="meditating man">🧘‍♂️</span> AstroBot Vedari
-      </h1>
-      <form onSubmit={handleSubmit}>
-        <input name="name" placeholder="Full Name" onChange={handleChange} /><br/><br/>
-        <input name="date" placeholder="Date of Birth (YYYY-MM-DD)" onChange={handleChange} /><br/><br/>
-        <input name="time" placeholder="Time of Birth (HH:MM)" onChange={handleChange} /><br/><br/>
-        <input name="place" placeholder="Place of Birth" onChange={handleChange} /><br/><br/>
-        <button type="submit">Ask Vedari</button>
-      </form>
-      <hr/>
-      <div><strong>Vedari Says:</strong><br/>{response}</div>
+    <div className="App">
+      <h1>🧘‍♂️ AstroBot Vedari</h1>
+      <input
+        type="text"
+        placeholder="name"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+      />
+      <div>
+        <select value={day} onChange={(e) => setDay(e.target.value)}>
+          {generateOptions(1, 31)}
+        </select>
+        <select value={month} onChange={(e) => setMonth(e.target.value)}>
+          {generateOptions(1, 12)}
+        </select>
+        <select value={year} onChange={(e) => setYear(e.target.value)}>
+          {generateOptions(1900, 2025)}
+        </select>
+      </div>
+      <input
+        type="text"
+        placeholder="12:00"
+        value={time}
+        onChange={(e) => setTime(e.target.value)}
+      />
+      <input
+        type="text"
+        placeholder="rajkot, gujarat"
+        value={place}
+        onChange={(e) => setPlace(e.target.value)}
+      />
+      <button onClick={handleSubmit}>Ask Vedari</button>
+      <hr />
+      <h3>Vedari Says:</h3>
+      <pre>{result}</pre>
     </div>
   );
 }
