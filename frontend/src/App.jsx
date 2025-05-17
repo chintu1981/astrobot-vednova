@@ -36,12 +36,11 @@ function App() {
 
   const handleCitySelect = (city) => {
     setSelectedCity(city);
-    setCitySearch(`${city.city}, ${city.country}`);
+    setCitySearch(city.city);
     setCityResults([]);
 
-    // GeoDB already gives timezone offset as raw minutes
     if (city.timezone) {
-      const offsetMinutes = city.timezone.offsetTotalMinutes || 330; // default to +05:30
+      const offsetMinutes = city.timezone.offsetTotalMinutes || 330;
       const sign = offsetMinutes >= 0 ? "+" : "-";
       const hours = String(Math.floor(Math.abs(offsetMinutes) / 60)).padStart(2, "0");
       const minutes = String(Math.abs(offsetMinutes) % 60).padStart(2, "0");
@@ -57,7 +56,7 @@ function App() {
     const formattedTime = `${hour.padStart(2, "0")}:${minute.padStart(2, "0")}:00`;
     const formattedDate = `${year}-${month}-${day}`;
     const apiKey = "BPbzv8zDmX";
-    const encodedLocation = encodeURIComponent(`${selectedCity.city}, ${selectedCity.country}`);
+    const encodedLocation = encodeURIComponent(selectedCity.city);
 
     const planetDataURL = `https://api.vedastro.org/api/Calculate/AllPlanetData/PlanetName/All/Location/${encodedLocation}/Time/${formattedTime}/${formattedDate}/${timezone}/Ayanamsa/LAHIRI/APIKey/${apiKey}`;
 
@@ -68,8 +67,13 @@ function App() {
       const planetJson = await planetRes.json();
       console.log("🌌 VedAstro Response:", planetJson);
 
+      if (!planetJson.Payload || !planetJson.Payload.AllPlanetData) {
+        setResponse({ error: "VedAstro returned no data. Try simplifying city name (e.g., 'Rajkot')." });
+        return;
+      }
+
       setResponse({
-        planetData: planetJson.Payload?.AllPlanetData || []
+        planetData: planetJson.Payload.AllPlanetData
       });
     } catch (err) {
       console.error("❌ Error calling VedAstro:", err);
@@ -129,7 +133,7 @@ function App() {
       {showTextKundali && Array.isArray(response?.planetData) && response.planetData.length > 0 && (
         <div>
           <h3>
-            <span role="img" aria-label="Planetary Positions">🌌</span> Planetary Positions
+            <span role="img" aria-label="Planetary Positions">🌌</span> Planetary Positions (True Lagna-Based)
           </h3>
           <ul>
             {response.planetData.map((planet, idx) => {
