@@ -13,10 +13,14 @@ const AstroBotVedari = () => {
   const [statusPlanet, setStatusPlanet] = useState(null);
   const [statusHouse, setStatusHouse] = useState(null);
 
+  const VEDASTRO_API_KEY = process.env.REACT_APP_VEDASTRO_API_KEY;
+  const NINJA_API_KEY = process.env.REACT_APP_NINJA_API_KEY;
+  const OPENAI_API_KEY = process.env.REACT_APP_OPENAI_API_KEY;
+
   const fetchLocationOptions = async (inputValue) => {
     if (!inputValue) return [];
     const response = await fetch(`https://api.api-ninjas.com/v1/geocoding?city=${inputValue}`, {
-      headers: { 'X-Api-Key': 'wBK21wCy9SmT29zbfnAjOA==CmbJZ2DKxu3EiQ4m' }
+      headers: { 'X-Api-Key': NINJA_API_KEY }
     });
     const data = await response.json();
     return data.map(loc => ({
@@ -29,11 +33,10 @@ const AstroBotVedari = () => {
     const datetime = `${time}:00/${year}-${month}-${day}`;
     const loc = location.label.split(',')[0];
     const baseURL = 'https://api.vedastro.org/api/Calculate';
-    const key = 'BPbzv8zDmX';
 
-    const planetURL = `${baseURL}/AllPlanetData/PlanetName/All/Location/${loc}/Time/${datetime}/Ayanamsa/LAHIRI/APIKey/${key}`;
-    const houseURL = `${baseURL}/AllHouseData/HouseName/All/Location/${loc}/Time/${datetime}/Ayanamsa/LAHIRI/APIKey/${key}`;
-    const predictURL = `${baseURL}/HoroscopePredictions/Location/${loc}/Time/${datetime}/Ayanamsa/LAHIRI/APIKey/${key}`;
+    const planetURL = `${baseURL}/AllPlanetData/PlanetName/All/Location/${loc}/Time/${datetime}/Ayanamsa/LAHIRI/APIKey/${VEDASTRO_API_KEY}`;
+    const houseURL = `${baseURL}/AllHouseData/HouseName/All/Location/${loc}/Time/${datetime}/Ayanamsa/LAHIRI/APIKey/${VEDASTRO_API_KEY}`;
+    const predictURL = `${baseURL}/HoroscopePredictions/Location/${loc}/Time/${datetime}/Ayanamsa/LAHIRI/APIKey/${VEDASTRO_API_KEY}`;
 
     try {
       const [planetRes, houseRes, predictRes] = await Promise.all([
@@ -68,7 +71,7 @@ const AstroBotVedari = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer'
+          'Authorization': `Bearer ${OPENAI_API_KEY}`
         },
         body: JSON.stringify({
           model: 'gpt-4',
