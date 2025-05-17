@@ -14,5 +14,10 @@ app.add_middleware(
 
 @app.post("/ask_vedari")
 async def ask_vedari(request: Request):
-    data = await request.json()
-    return get_vedari_response(data)
+    try:
+        data = await request.json()
+        # process your data here
+        return {"message": "Received", "data": data}
+    except Exception as e:
+        # Log or return error
+        return {"error": f"Server error: {str(e)}"}
