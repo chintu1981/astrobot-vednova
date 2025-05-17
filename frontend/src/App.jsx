@@ -14,7 +14,8 @@ const AstroBotVedari = () => {
   const vedastroKey = process.env.REACT_APP_VEDASTRO_API_KEY;
   const openaiKey = process.env.REACT_APP_OPENAI_API_KEY;
   const ninjaKey = process.env.REACT_APP_NINJA_API_KEY;
-
+  const apiUrl = process.env.REACT_APP_API_URL;
+  
   const fetchLocationOptions = async (inputValue) => {
     if (!inputValue) return [];
     const response = await fetch(`https://api.api-ninjas.com/v1/geocoding?city=${inputValue}`, {
@@ -37,9 +38,10 @@ const AstroBotVedari = () => {
     const loc = `Location/${location.value.name}`;
     const timeUrl = buildTimeUrl();
 
-    const planetUrl = `https://api.vedastro.org/api/Calculate/AllPlanetData/PlanetName/All/${loc}/${timeUrl}/Ayanamsa/LAHIRI/APIKey/${vedastroKey}`;
-    const houseUrl = `https://api.vedastro.org/api/Calculate/AllHouseData/HouseName/All/${loc}/${timeUrl}/Ayanamsa/LAHIRI/APIKey/${vedastroKey}`;
-    const predictionsUrl = `https://api.vedastro.org/api/Calculate/HoroscopePredictions/${loc}/${timeUrl}/Ayanamsa/LAHIRI/APIKey/${vedastroKey}`;
+    const planetUrl = `${apiUrl}/api/Calculate/AllPlanetData/PlanetName/All/${loc}/${timeUrl}/Ayanamsa/LAHIRI/APIKey/${vedastroKey}`;
+    const houseUrl = `${apiUrl}/api/Calculate/AllHouseData/HouseName/All/${loc}/${timeUrl}/Ayanamsa/LAHIRI/APIKey/${vedastroKey}`;
+    const predictionsUrl = `${apiUrl}/api/Calculate/HoroscopePredictions/${loc}/${timeUrl}/Ayanamsa/LAHIRI/APIKey/${vedastroKey}`;
+
 
     let result = 'Vedari Says:';
     try {
