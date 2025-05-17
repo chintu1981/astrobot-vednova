@@ -39,25 +39,33 @@ export default function App() {
   };
 
   const handleAskVedari = async () => {
-    if (!selectedLocation) {
-      alert('Please select a city from suggestions.');
-      return;
-    }
+  if (!selectedLocation) {
+    alert('Please select a city from suggestions.');
+    return;
+  }
 
-    const [hour, minute] = time.split(':');
-    const formattedDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-    const formattedTime = `${hour.padStart(2, '0')}:${minute.padStart(2, '0')}:00`;
-    const encodedLocation = encodeURIComponent(locationInput);
+  const [hour, minute] = time.split(':');
+  const formattedDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  const formattedTime = `${hour.padStart(2, '0')}:${minute.padStart(2, '0')}:00`;
 
-    try {
-      const chartUrl = `https://api.vedastro.org/ChartJSON/${formattedDate}/${formattedTime}/${selectedLocation.latitude}/${selectedLocation.longitude}`;
-      const response = await axios.get(chartUrl);
-      setChartResult(response.data);
-    } catch (err) {
-      console.error('ChartJSON error:', err);
-      setChartResult({ Status: 'Fail', Payload: 'Could not fetch chart data.' });
-    }
-  };
+  try {
+    // Step 1: Lookup timezone from lat/lon using Ninja API
+    const tzResponse = await axios.get(`https://api.api-ninjas.com/v1/timezone?lat=${selectedLocation.latitude}&lon=${selectedLocation.longitude}`, {
+      headers: { 'X-Api-Key': ninjaKey }
+    });
+
+    const timezone = encodeURIComponent(tzResponse.data.timezone);
+
+    // Step 2: Call VedAstro ChartJSON API with timezone
+    const chartUrl = `https://api.vedastro.org/ChartJSON/${formattedDate}/${formattedTime}/${selectedLocation.latitude}/${selectedLocation.longitude}/${timezone}`;
+    const response = await axios.get(chartUrl);
+
+    setChartResult(response.data);
+  } catch (err) {
+    console.error('ChartJSON error:', err);
+    setChartResult({ Status: 'Fail', Payload: 'Could not fetch chart data.' });
+  }
+};
 
   return (
     <div style={{ fontFamily: 'Arial', padding: '20px' }}>
