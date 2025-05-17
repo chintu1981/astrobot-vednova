@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 
@@ -7,54 +8,25 @@ function App() {
   const [month, setMonth] = useState("06");
   const [year, setYear] = useState("1981");
   const [time, setTime] = useState("12:00");
-  const [cityQuery, setCityQuery] = useState("");
-  const [cities, setCities] = useState([]);
+  const [cityInput, setCityInput] = useState("");
+  const [suggestions, setSuggestions] = useState([]);
   const [selectedCity, setSelectedCity] = useState(null);
-  const [response, setResponse] = useState(null);
-  const [showText, setShowText] = useState(false);
+  const [result, setResult] = useState("");
 
-  const geoDBApiKey = "c692960917msh69316d06d1e0408p182b0ejsne1e40ea437ab"; // <-- Add your RapidAPI key here
   const ninjaApiKey = "wBK21wCy9SmT29zbfnAjOA==CmbJZ2DKxu3EiQ4m";
 
-  // Autocomplete for cities using GeoDB
   useEffect(() => {
-    const fetchCities = async () => {
-      if (cityQuery.length < 3) return;
-      try {
-        const res = await axios.get(
-          `https://wft-geo-db.p.rapidapi.com/v1/geo/cities`,
-          {
-            params: { namePrefix: cityQuery },
-            headers: {
-              "X-RapidAPI-Key": geoDBApiKey,
-              "X-RapidAPI-Host": "wft-geo-db.p.rapidapi.com",
-            },
-          }
-        );
-        setCities(res.data.data);
-      } catch (error) {
-        console.error("GeoDB fetch error:", error);
-      }
-    };
-
-    const delayDebounce = setTimeout(fetchCities, 500);
-    return () => clearTimeout(delayDebounce);
-  }, [cityQuery]);
-
-  const fetchTimezone = async (lat, lon) => {
-    try {
-      const res = await axios.get(
-        `https://api.api-ninjas.com/v1/timezone?lat=${lat}&lon=${lon}`,
-        {
+    if (cityInput.length > 2) {
+      axios
+        .get("https://api.api-ninjas.com/v1/geocoding?city=" + cityInput, {
           headers: { "X-Api-Key": ninjaApiKey },
-        }
-      );
-      return res.data.utc_offset;
-    } catch (error) {
-      console.error("Timezone fetch error:", error);
-      return null;
+        })
+        .then((res) => {
+          setSuggestions(res.data);
+        })
+        .catch((err) => console.error(err));
     }
-  };
+  }, [cityInput]);
 
   const handleAskVedari = async () => {
     if (!selectedCity) {
@@ -62,44 +34,37 @@ function App() {
       return;
     }
 
-    const { name: cityName, latitude, longitude, country } = selectedCity;
-    const locationName = `${cityName}, ${country}`;
-    const timezoneOffset = await fetchTimezone(latitude, longitude);
-
-    if (!timezoneOffset) {
-      alert("Failed to get timezone. Try another city.");
-      return;
-    }
-
-    const location = {
-      Name: locationName,
-      GeoLat: latitude,
-      GeoLong: longitude,
-      TimeZone: timezoneOffset,
-    };
-
-    const formattedDate = `${year}-${month}-${day}`;
-    const formattedTime = time + ":00";
-
+    const [hour, minute] = time.split(":");
     const payload = {
       name,
-      location,
-      formattedDate,
-      formattedTime,
+      location: {
+        latitude: selectedCity.latitude,
+        longitude: selectedCity.longitude,
+      },
+      datetime: {
+        year: parseInt(year),
+        month: parseInt(month),
+        day: parseInt(day),
+        hour: parseInt(hour),
+        minute: parseInt(minute),
+      },
     };
 
     console.log("Sending to VedAstro:", payload);
-
     try {
-      const res = await axios.post(
-        `https://api.vedastro.org/api/ChartJSON`,
+      const response = await axios.post(
+        "https://api.vedastro.org/api/ChartJSON",
         payload
       );
-      console.log("VedAstro ChartJSON:", res.data);
-      setResponse(res.data);
-    } catch (error) {
-      console.error("VedAstro Error:", error);
-      setResponse({ Status: "Fail", Payload: "Error contacting VedAstro API" });
+      console.log("VedAstro ChartJSON:", response.data);
+      if (response.data.Status === "Pass") {
+        setResult(JSON.stringify(response.data.Payload, null, 2));
+      } else {
+        setResult("VedAstro returned no data. Try a nearby major city.");
+      }
+    } catch (err) {
+      console.error("API error:", err);
+      setResult("Something went wrong fetching the chart.");
     }
   };
 
@@ -108,65 +73,58 @@ function App() {
       <h1>
         <span role="img" aria-label="meditating person">🧘‍♂️</span> AstroBot Vedari
       </h1>
-      <div>
-        <input
-          type="text"
-          placeholder="Name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
-        Day:
-        <select value={day} onChange={(e) => setDay(e.target.value)}>
-          {Array.from({ length: 31 }, (_, i) => (
-            <option key={i + 1}>{String(i + 1).padStart(2, "0")}</option>
-          ))}
-        </select>
-        Month:
-        <select value={month} onChange={(e) => setMonth(e.target.value)}>
-          {Array.from({ length: 12 }, (_, i) => (
-            <option key={i + 1}>{String(i + 1).padStart(2, "0")}</option>
-          ))}
-        </select>
-        Year:
-        <select value={year} onChange={(e) => setYear(e.target.value)}>
-          {Array.from({ length: 100 }, (_, i) => (
-            <option key={i}>{1980 + i}</option>
-          ))}
-        </select>
-        <input
-          type="text"
-          value={time}
-          onChange={(e) => setTime(e.target.value)}
-          placeholder="12:00"
-        />
-        <input
-          list="city-list"
-          placeholder="Start typing city..."
-          value={cityQuery}
-          onChange={(e) => setCityQuery(e.target.value)}
-        />
-        <datalist id="city-list">
-          {cities.map((city) => (
-            <option
-              key={city.id}
-              value={`${city.name}, ${city.country}`}
-              onClick={() => setSelectedCity(city)}
-            />
-          ))}
-        </datalist>
-        <button onClick={handleAskVedari}>Ask Vedari</button>
-        <button onClick={() => setShowText(!showText)}>
-          {showText ? "Hide Text Kundali" : "Show Text Kundali"}
-        </button>
-      </div>
-
+      <input
+        placeholder="Name"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+      />
+      Day:
+      <select value={day} onChange={(e) => setDay(e.target.value)}>
+        {[...Array(31)].map((_, i) => (
+          <option key={i + 1}>{String(i + 1).padStart(2, "0")}</option>
+        ))}
+      </select>
+      Month:
+      <select value={month} onChange={(e) => setMonth(e.target.value)}>
+        {[...Array(12)].map((_, i) => (
+          <option key={i + 1}>{String(i + 1).padStart(2, "0")}</option>
+        ))}
+      </select>
+      Year:
+      <select value={year} onChange={(e) => setYear(e.target.value)}>
+        {Array.from({ length: 100 }, (_, i) => 2025 - i).map((y) => (
+          <option key={y}>{y}</option>
+        ))}
+      </select>
+      <input
+        type="text"
+        value={time}
+        onChange={(e) => setTime(e.target.value)}
+        placeholder="HH:MM"
+      />
+      <input
+        type="text"
+        value={cityInput}
+        onChange={(e) => {
+          setCityInput(e.target.value);
+          setSelectedCity(null);
+        }}
+        placeholder="Start typing city..."
+        list="city-suggestions"
+      />
+      <datalist id="city-suggestions">
+        {suggestions.map((city, idx) => (
+          <option
+            key={idx}
+            value={`${city.name}, ${city.country}`}
+            onClick={() => setSelectedCity(city)}
+          />
+        ))}
+      </datalist>
+      <button onClick={handleAskVedari}>Ask Vedari</button>
       <hr />
       <h2>Vedari Says:</h2>
-      {response && showText && (
-        <pre style={{ whiteSpace: "pre-wrap" }}>
-          {JSON.stringify(response.Payload, null, 2)}
-        </pre>
-      )}
+      <pre>{result}</pre>
     </div>
   );
 }
