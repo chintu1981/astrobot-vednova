@@ -90,14 +90,18 @@ function App() {
       {response?.error && <div>{response.error}</div>}
       {response?.chartURL && (
         <div>
-          <h3>🧭 North Indian Chart</h3>
+          <h3>
+           <span role="img" aria-label="North Indian Chart">🧭</span> North Indian Chart
+          </h3>
           <img src={response.chartURL} alt="North Indian Chart" style={{ border: "1px solid gray" }} />
         </div>
       )}
 
       {response?.planetData && (
         <div>
-          <h3>🌌 Planetary Positions</h3>
+          <h3>
+            <span role="img" aria-label="Planetary Positions">🌌</span> Planetary Positions
+          </h3>
           <ul>
             {response.planetData.map((planet, idx) => {
               const [name, data] = Object.entries(planet)[0];
@@ -113,7 +117,9 @@ function App() {
 
       {response?.predictions && (
         <div>
-          <h3>📜 Horoscope Predictions</h3>
+          <h3>
+            <span role="img" aria-label="Horoscope Predictions">📜</span> Horoscope Predictions
+          </h3>
           <ul>
             {response.predictions.map((item, idx) => (
               <li key={idx}>{item.PredictionText}</li>
