@@ -11,6 +11,7 @@ function App() {
   const [selectedCity, setSelectedCity] = useState(null);
   const [timezone, setTimezone] = useState("+05:30");
   const [response, setResponse] = useState(null);
+  const [showTextKundali, setShowTextKundali] = useState(false);
 
   useEffect(() => {
     const delayDebounce = setTimeout(() => {
@@ -66,22 +67,13 @@ function App() {
     const apiKey = "BPbzv8zDmX";
     const encodedLocation = encodeURIComponent(`${selectedCity.city}, ${selectedCity.country}`);
 
-    const chartURL = `https://api.vedastro.org/api/Calculate/NorthIndianChart/Location/${encodedLocation}/Time/${formattedTime}/${formattedDate}/${timezone}/ChartType/Rasi/Ayanamsa/LAHIRI/APIKey/${apiKey}`;
     const planetDataURL = `https://api.vedastro.org/api/Calculate/AllPlanetData/PlanetName/All/Location/${encodedLocation}/Time/${formattedTime}/${formattedDate}/${timezone}/Ayanamsa/LAHIRI/APIKey/${apiKey}`;
-    const predictionURL = `https://api.vedastro.org/api/Calculate/HoroscopePredictions/Location/${encodedLocation}/Time/${formattedTime}/${formattedDate}/${timezone}/Ayanamsa/LAHIRI/APIKey/${apiKey}`;
 
     try {
-      const [planetRes, predictionRes] = await Promise.all([
-        fetch(planetDataURL),
-        fetch(predictionURL),
-      ]);
+      const planetRes = await fetch(planetDataURL);
       const planetJson = await planetRes.json();
-      const predictionJson = await predictionRes.json();
-
       setResponse({
-        chartURL,
-        planetData: planetJson.Payload?.AllPlanetData || [],
-        predictions: predictionJson.Payload?.filter(p => !!p.PredictionText) || [],
+        planetData: planetJson.Payload?.AllPlanetData || []
       });
     } catch (err) {
       setResponse({ error: "Error fetching data" });
@@ -91,7 +83,7 @@ function App() {
   return (
     <div style={{ padding: 20, fontFamily: "sans-serif" }}>
       <h1>
-      <span role="img" aria-label="meditating person">🧘‍♂️</span> AstroBot Vedari
+        <span role="img" aria-label="meditating person">🧘‍♂️</span> AstroBot Vedari
       </h1>
 
       <input placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} />
@@ -129,49 +121,31 @@ function App() {
       </div>
 
       <button onClick={handleSubmit}>Ask Vedari</button>
+      <button onClick={() => setShowTextKundali(!showTextKundali)} style={{ marginLeft: 10 }}>
+        {showTextKundali ? "Hide" : "Show"} Text Kundali
+      </button>
 
       <hr />
       <h2>Vedari Says:</h2>
       {response?.error && <div style={{ color: "red" }}>{response.error}</div>}
 
-      {response?.chartURL && (
+      {showTextKundali && Array.isArray(response?.planetData) && response.planetData.length > 0 && (
         <div>
           <h3>
-            <span role="img" aria-label="North Indian Chart">🧭</span> North Indian Chart
-          </h3>
-          <img src={response.chartURL} alt="North Indian Chart" style={{ border: "1px solid gray", maxWidth: "90%" }} />
-        </div>
-      )}
-
-      {Array.isArray(response?.planetData) && response.planetData.length > 0 && (
-        <div>
-          <h3>
-            <span role="img" aria-label="Planetary Positions">🌌</span> Planetary Positions
+            <span role="img" aria-label="Planetary Positions">🌌</span> Planetary Positions (True Lagna-Based)
           </h3>
           <ul>
             {response.planetData.map((planet, idx) => {
               const [name, data] = Object.entries(planet)[0];
               const house = data?.HousePlanetOccupies?.Name || "Unknown";
-              const benefic = data?.IsPlanetBenefic ? "True" : "False";
+              const rashi = data?.Sign?.Name || "-";
+              const degree = data?.Longitude?.Degree || "-";
               return (
                 <li key={idx}>
-                  <strong>{name}</strong>: {house} | Benefic: {benefic}
+                  <strong>{name}</strong>: House: {house} | Rashi: {rashi} | Degree: {degree}°
                 </li>
               );
             })}
-          </ul>
-        </div>
-      )}
-
-      {Array.isArray(response?.predictions) && response.predictions.length > 0 && (
-        <div>
-          <h3>
-            <span role="img" aria-label="Horoscope Predictions">📜</span> Horoscope Predictions
-          </h3>
-          <ul>
-            {response.predictions.map((item, idx) => (
-              <li key={idx}>{item?.PredictionText}</li>
-            ))}
           </ul>
         </div>
       )}
