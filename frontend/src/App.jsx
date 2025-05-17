@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import AsyncSelect from "react-select/async";
-import tzlookup from "tz-lookup";
 
 export default function App() {
   const [name, setName] = useState("");
@@ -9,100 +8,105 @@ export default function App() {
   const [year, setYear] = useState("1981");
   const [time, setTime] = useState("12:00");
   const [location, setLocation] = useState(null);
-  const [response, setResponse] = useState("");
-
-  const loadOptions = async (inputValue, callback) => {
-    if (!inputValue) return callback([]);
-    try {
-      const response = await fetch(`https://api.api-ninjas.com/v1/city?name=${inputValue}`, {
-        headers: { 'X-Api-Key': 'wBK21wCy9SmT29zbfnAjOA==CmbJZ2DKxu3EiQ4m' },
-      });
-      const data = await response.json();
-      const options = data.map(city => ({
-        label: `${city.name}, ${city.country}`,
-        value: city,
-      }));
-      callback(options);
-    } catch (error) {
-      console.error("Location fetch error:", error);
-      callback([]);
-    }
-  };
-
-  const handleLocationChange = (selectedOption) => {
-    setLocation(selectedOption.value);
-  };
+  const [result, setResult] = useState("");
+  const [showKundali, setShowKundali] = useState(false);
 
   const handleAskVedari = async () => {
-    if (!location) {
+    if (!location || !location.label) {
       alert("Please select a city from suggestions.");
       return;
     }
 
     try {
-      const latitude = location.latitude;
-      const longitude = location.longitude;
-      const timezone = tzlookup(latitude, longitude);
+      const [hour, minute] = time.split(":");
+      const timezoneOffset = "+05:30"; // You can adjust this based on real data later
+      const dateFormatted = `${hour}:${minute}/${day}/${month}/${year}/${timezoneOffset}`;
+      const encodedLocation = encodeURIComponent(location.label.split(",")[0]);
+      const ayanamsa = "LAHIRI";
+      const apiKey = "BPbzv8zDmX";
 
-      const date = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
-      const formattedTime = `${date}T${time}:00+05:30`; // hardcoded IST for now
-      const locationString = `${latitude},${longitude}`;
+      const apiUrl = `https://api.vedastro.org/api/Calculate/AllPlanetData/PlanetName/All/Location/${encodedLocation}/Time/${dateFormatted}/Ayanamsa/${ayanamsa}/APIKey/${apiKey}`;
 
-      const chartUrl = `https://api.vedastro.org/ChartJSON/${formattedTime}/${locationString}`;
-
-      const chartRes = await fetch(chartUrl);
-      if (!chartRes.ok) throw new Error("Chart fetch failed.");
-      const chartData = await chartRes.json();
-
-      setResponse(JSON.stringify(chartData, null, 2));
+      const response = await fetch(apiUrl);
+      const data = await response.json();
+      setResult(JSON.stringify(data, null, 2));
     } catch (err) {
-      console.error("ChartJSON error:", err.message);
-      setResponse("Chart fetch failed.");
+      console.error("ChartJSON error:", err);
+      setResult("Chart fetch failed.");
     }
   };
 
+  const loadOptions = async (inputValue) => {
+    if (!inputValue) return [];
+    const response = await fetch(
+      `https://api.api-ninjas.com/v1/city?name=${inputValue}`,
+      {
+        headers: { "X-Api-Key": "wBK21wCy9SmT29zbfnAjOA==CmbJZ2DKxu3EiQ4m" },
+      }
+    );
+    const data = await response.json();
+    return data.map((city) => ({
+      label: `${city.name}, ${city.country}`,
+      value: city,
+    }));
+  };
+
   return (
-    <div>
+    <div style={{ padding: "20px" }}>
       <h1>
         <span role="img" aria-label="meditating person">🧘‍♂️</span> AstroBot Vedari
       </h1>
-      <div>
+      <div style={{ display: "flex", gap: "5px", marginBottom: "10px" }}>
         <input
-          placeholder="Name"
+          type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
+          placeholder="Name"
         />
         Day:
         <select value={day} onChange={(e) => setDay(e.target.value)}>
-          {[...Array(31).keys()].map(d => <option key={d+1}>{String(d+1).padStart(2, '0')}</option>)}
+          {[...Array(31)].map((_, i) => (
+            <option key={i + 1}>{String(i + 1).padStart(2, "0")}</option>
+          ))}
         </select>
         Month:
         <select value={month} onChange={(e) => setMonth(e.target.value)}>
-          {[...Array(12).keys()].map(m => <option key={m+1}>{String(m+1).padStart(2, '0')}</option>)}
+          {[...Array(12)].map((_, i) => (
+            <option key={i + 1}>{String(i + 1).padStart(2, "0")}</option>
+          ))}
         </select>
         Year:
         <select value={year} onChange={(e) => setYear(e.target.value)}>
-          {Array.from({ length: 100 }, (_, i) => 2024 - i).map(y => <option key={y}>{y}</option>)}
+          {[...Array(100)].map((_, i) => (
+            <option key={i} value={1980 + i}>
+              {1980 + i}
+            </option>
+          ))}
         </select>
         <input
+          type="text"
           value={time}
           onChange={(e) => setTime(e.target.value)}
+          placeholder="HH:MM"
         />
         <AsyncSelect
           cacheOptions
-          defaultOptions
           loadOptions={loadOptions}
-          onChange={handleLocationChange}
-          placeholder="Type city name..."
+          defaultOptions
+          onChange={setLocation}
+          placeholder="Search City"
         />
-        <button onClick={handleAskVedari}>Ask Vedari</button>
-        <button onClick={() => setResponse("")}>Hide Text Kundali</button>
       </div>
-      <hr />
-      <div>
-        <h2>Vedari Says:</h2>
-        <pre>{response}</pre>
-      </div>
+      <button onClick={handleAskVedari}>Ask Vedari</button>
+      <button onClick={() => setShowKundali(!showKundali)}>
+        {showKundali ? "Hide Text Kundali" : "Show Text Kundali"}
+      </button>
+      {showKundali && (
+        <pre style={{ whiteSpace: "pre-wrap", marginTop: "20px" }}>
+          Vedari Says:
+          {"\n" + result}
+        </pre>
+      )}
     </div>
   );
 }
