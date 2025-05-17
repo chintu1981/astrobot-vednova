@@ -8,7 +8,7 @@ function App() {
   const [birthTime, setBirthTime] = useState("12:00");
   const [locationList, setLocationList] = useState([]);
   const [selectedLocation, setSelectedLocation] = useState("");
-  const [timezone, setTimezone] = useState("+05:30");
+  const timezone = "+05:30";
   const [response, setResponse] = useState(null);
   const [showTextKundali, setShowTextKundali] = useState(false);
 
