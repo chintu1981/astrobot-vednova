@@ -11,7 +11,7 @@ function App() {
 
   const handleSubmit = async () => {
     const fullDate = `${birthYear}-${birthMonth}-${birthDay}`;
-    const apiUrl = "https://api.vedastro.org/api/planet-position";
+    const apiUrl = "https://api.vedastro.org/api/Planet/Position";
 
     try {
       const res = await fetch(apiUrl, {
