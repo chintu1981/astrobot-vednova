@@ -1,71 +1,66 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 
-function App() {
+
+const App = () => {
   const [name, setName] = useState('');
   const [day, setDay] = useState('05');
   const [month, setMonth] = useState('06');
   const [year, setYear] = useState('1981');
   const [time, setTime] = useState('12:00');
-  const [location, setLocation] = useState('');
+  const [locationInput, setLocationInput] = useState('');
   const [locationSuggestions, setLocationSuggestions] = useState([]);
   const [selectedLocation, setSelectedLocation] = useState(null);
-  const [result, setResult] = useState(null);
-  const [error, setError] = useState(null);
+  const [response, setResponse] = useState('');
+  const [showKundali, setShowKundali] = useState(true);
 
-  const NINJA_API_KEY = 'wBK21wCy9SmT29zbfnAjOA==CmbJZ2DKxu3EiQ4m';
-
-  const handleLocationChange = async (e) => {
-    const query = e.target.value;
-    setLocation(query);
-    if (query.length < 3) return;
-    try {
-      const res = await fetch(`https://api.api-ninjas.com/v1/geocoding?city=${query}`, {
-        headers: { 'X-Api-Key': NINJA_API_KEY },
-      });
-      const data = await res.json();
-      setLocationSuggestions(data);
-    } catch (err) {
-      console.error('Location fetch error:', err);
+  useEffect(() => {
+    if (locationInput.length > 2) {
+      const timeoutId = setTimeout(() => {
+        axios.get(`https://api.api-ninjas.com/v1/city?name=${locationInput}`, {
+          headers: { 'X-Api-Key': 'wBK21wCy9SmT29zbfnAjOA==CmbJZ2DKxu3EiQ4m' },
+        })
+        .then(res => {
+          const matches = res.data.map(city => ({
+            name: `${city.name}, ${city.country}`,
+            lat: city.latitude,
+            lon: city.longitude,
+          }));
+          setLocationSuggestions(matches);
+        })
+        .catch(err => console.error(err));
+      }, 500);
+      return () => clearTimeout(timeoutId);
     }
-  };
-
-  const handleSelectLocation = (loc) => {
-    setSelectedLocation(loc);
-    setLocation(`${loc.name}, ${loc.country}`);
-    setLocationSuggestions([]);
-  };
+  }, [locationInput]);
 
   const handleSubmit = async () => {
     if (!selectedLocation) {
-      alert('Please select a city from suggestions.');
+      alert("Please select a city from suggestions.");
       return;
     }
-    const dateStr = `${year}-${month}-${day}`;
-    const timeStr = `${time}:00`;
-    const { latitude, longitude } = selectedLocation;
 
-    const payload = {
-      name,
-      birthDate: dateStr,
-      birthTime: timeStr,
-      latitude,
-      longitude,
-    };
+    const birthDate = `${year}-${month}-${day}`;
+    const birthTime = time;
+    const timezoneRes = await axios.get(
+      `https://api.api-ninjas.com/v1/timezone?lat=${selectedLocation.lat}&lon=${selectedLocation.lon}`,
+      {
+        headers: { 'X-Api-Key': 'wBK21wCy9SmT29zbfnAjOA==CmbJZ2DKxu3EiQ4m' },
+      }
+    );
 
-    try {
-      const res = await fetch('https://api.vedastro.org/api/ChartJSON', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json();
-      if (data.Status === 'Fail') throw new Error(data.Payload);
-      setResult(data.Payload);
-      setError(null);
-    } catch (err) {
-      setError(err.message);
-      setResult(null);
-    }
+    const timezone = timezoneRes.data.timezone;
+
+    const encodedLocation = encodeURIComponent(selectedLocation.name);
+    const encodedTime = encodeURIComponent(birthTime);
+    const encodedDate = encodeURIComponent(birthDate);
+    const encodedTz = encodeURIComponent(timezone);
+
+    const apiUrl = `https://api.vedastro.org/ChartJSON/${encodedLocation}/${encodedDate}/${encodedTime}/${encodedTz}`;
+
+    const vedastroResponse = await axios.get(apiUrl);
+    const chartData = vedastroResponse.data;
+    setResponse(chartData);
   };
 
   return (
@@ -73,69 +68,60 @@ function App() {
       <h1>
         <span role="img" aria-label="meditating person">🧘‍♂️</span> AstroBot Vedari
       </h1>
+      <input
+        placeholder="Name"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+      />
+      Day:
+      <select value={day} onChange={(e) => setDay(e.target.value)}>
+        {[...Array(31)].map((_, i) => (
+          <option key={i + 1}>{String(i + 1).padStart(2, '0')}</option>
+        ))}
+      </select>
+      Month:
+      <select value={month} onChange={(e) => setMonth(e.target.value)}>
+        {[...Array(12)].map((_, i) => (
+          <option key={i + 1}>{String(i + 1).padStart(2, '0')}</option>
+        ))}
+      </select>
+      Year:
+      <select value={year} onChange={(e) => setYear(e.target.value)}>
+        {[...Array(100)].map((_, i) => (
+          <option key={i}>{1981 + i}</option>
+        ))}
+      </select>
+      <input value={time} onChange={(e) => setTime(e.target.value)} />
+      <input
+        list="location-options"
+        placeholder="Start typing city"
+        value={locationInput}
+        onChange={(e) => {
+          setLocationInput(e.target.value);
+          setSelectedLocation(null);
+        }}
+      />
+      <datalist id="location-options">
+        {locationSuggestions.map((loc, i) => (
+          <option
+            key={i}
+            value={loc.name}
+            onClick={() => setSelectedLocation(loc)}
+          >
+            {loc.name}
+          </option>
+        ))}
+      </datalist>
+      <button onClick={handleSubmit}>Ask Vedari</button>
+      <button onClick={() => setShowKundali(!showKundali)}>
+        {showKundali ? 'Hide' : 'Show'} Text Kundali
+      </button>
       <div>
-        <input
-          type="text"
-          placeholder="Name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
-        Day:
-        <select value={day} onChange={(e) => setDay(e.target.value)}>
-          {[...Array(31).keys()].map((d) => (
-            <option key={d + 1} value={String(d + 1).padStart(2, '0')}>
-              {d + 1}
-            </option>
-          ))}
-        </select>
-        Month:
-        <select value={month} onChange={(e) => setMonth(e.target.value)}>
-          {[...Array(12).keys()].map((m) => (
-            <option key={m + 1} value={String(m + 1).padStart(2, '0')}>
-              {m + 1}
-            </option>
-          ))}
-        </select>
-        Year:
-        <select value={year} onChange={(e) => setYear(e.target.value)}>
-          {Array.from({ length: 100 }, (_, i) => 2025 - i).map((y) => (
-            <option key={y} value={y}>
-              {y}
-            </option>
-          ))}
-        </select>
-        <input type="text" value={time} onChange={(e) => setTime(e.target.value)} placeholder="HH:MM" />
-        <input
-          type="text"
-          value={location}
-          onChange={handleLocationChange}
-          placeholder="City"
-          list="suggestions"
-        />
-        <datalist id="suggestions">
-          {locationSuggestions.map((loc, i) => (
-            <option
-              key={i}
-              value={`${loc.name}, ${loc.country}`}
-              onClick={() => handleSelectLocation(loc)}
-            />
-          ))}
-        </datalist>
-        <button onClick={handleSubmit}>Ask Vedari</button>
+        <h2>Vedari Says:</h2>
+        <pre>{showKundali ? JSON.stringify(response, null, 2) : ''}</pre>
       </div>
-
-      <hr />
-
-      {error && <p style={{ color: 'red' }}>{error}</p>}
-
-      {result && (
-        <div>
-          <h2>Vedari Says:</h2>
-          <pre>{JSON.stringify(result, null, 2)}</pre>
-        </div>
-      )}
     </div>
   );
-}
+};
 
 export default App;
